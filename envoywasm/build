@@ -1,0 +1,1 @@
+tinygo build -o envoy/bin/myfilter.wasm -target wasi ./main.go
