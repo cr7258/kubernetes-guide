@@ -22,3 +22,8 @@ spec:
     - image: tomcat
       name: myapp
 ```
+
+快速生成 nginx 配置：
+```bash
+cue export nginx.cue -e output -o nginx.yaml
+```

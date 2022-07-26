@@ -1,0 +1,39 @@
+deployment:
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: myngx
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: myngx
+    template:
+      metadata:
+        labels:
+          app: myngx
+      spec:
+        containers:
+          - name: nginx
+            image: nginx:1.18-alpine
+            env:
+              - name: age
+                value: "19"
+              - name: NODE_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: spec.nodeName
+            ports:
+              - containerPort: 80
+service:
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: myngxsvc
+  spec:
+    type: ClusterIP
+    ports:
+      - port: 80
+        targetPort: 80
+    selector:
+      app: myngx
