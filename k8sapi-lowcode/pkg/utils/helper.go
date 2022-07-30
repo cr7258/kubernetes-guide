@@ -10,7 +10,6 @@ func checkErr(err error) {
 		panic(err)
 	}
 }
-
 func MustLoadFile(path string) []byte {
 	f, err := os.Open(path)
 	checkErr(err)
@@ -19,7 +18,6 @@ func MustLoadFile(path string) []byte {
 	checkErr(err)
 	return b
 }
-
 func LoadFile(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
