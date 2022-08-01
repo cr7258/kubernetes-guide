@@ -4,18 +4,20 @@ import (
 	"bytes"
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/ast"
+	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/load"
 	"cuelang.org/go/encoding/openapi"
 	"encoding/json"
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	"github.com/shenyisyn/goft-gin/goft"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8sapi-lowcode/pkg/config"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
+	"strings"
 	"text/template"
-
-	"fmt"
 )
 
 func extractParameterDefinitionNodeFromInstance(inst *cue.Instance, rule string) ast.Node {
@@ -81,9 +83,20 @@ func GenOpenAPI(inst *cue.Instance, rule string, opts ...FillOption) ([]byte, er
 	return out.Bytes(), nil
 }
 
-//新增的 函数
+//新增的函数
 type FillOption func(inst *cue.Instance) *cue.Instance
 
+// 把文件解析为 cue.value
+func MustParseFileToCueValue(path string) cue.Value {
+	cc := cuecontext.New()
+	cv := cc.CompileBytes(MustLoadFile(path))
+	if err := cv.Err(); err != nil {
+		panic(err)
+	}
+	return cv
+}
+
+// 渲染cue的指定规则节点
 func PareseCue(file, param string, opts ...FillOption) gin.H {
 	binst := load.Instances([]string{file}, nil)
 	inst := cue.Build(binst)[0] //取第一个 。   暂时先这样
@@ -106,17 +119,31 @@ func PareseCue(file, param string, opts ...FillOption) gin.H {
 	}
 }
 
+// 吧字符串  譬如 k8s.jtthink.com_v1_fastnginxs
+// 转为k8s gvr 。没啥特别的 就是切割字符串， 毫无技术含量
+func ConvertToGvr(gvr string) schema.GroupVersionResource {
+	gvrList := strings.Split(gvr, "_")
+	if len(gvrList) != 3 {
+		panic("error gvr")
+	}
+	return schema.GroupVersionResource{
+		Group: gvrList[0], Version: gvrList[1], Resource: gvrList[2],
+	}
+}
+
 // 预先写好的填充 命名空间的函数
-func WithNameSpaceInject(lookuppath string, fillpath string) FillOption {
+func WithNameSpaceInject(fact informers.SharedInformerFactory, lookuppath string, fillpath string) FillOption {
 	return func(inst *cue.Instance) *cue.Instance {
-		nsList, err := config.K8sInformerFactory.Core().V1().Namespaces().Lister().List(labels.Everything())
+
+		nsList, err := fact.Core().V1().Namespaces().Lister().List(labels.Everything())
 		goft.Error(err)
+
 		nsTpl := `
         #namespaces: "" {{ range . }} | "{{ .Name }}"  {{ end }} 
-        `
+`
 		tpl := template.New("ns")
 		var tplResult bytes.Buffer
-		template.Must(tpl.Parse(nsTpl)).Execute(&tplResult, nsList)
+		goft.Error(template.Must(tpl.Parse(nsTpl)).Execute(&tplResult, nsList))
 		//首先查找母节点  ,自动拼凑了 #  因此外面传的时候 不要加 #
 		source := inst.Value().LookupPath(cue.ParsePath("#" + lookuppath))
 

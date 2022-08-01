@@ -27,7 +27,9 @@ func cross() gin.HandlerFunc {
 func main() {
 	server := goft.Ignite(cross()).
 		Config(
-			config.NewK8sConfig(), // 初始化 k8s
+			config.NewK8sConfig(),    // 初始化 k8s
+			config.NewSchemeConfig(), // 注册类型
+			config.NewEtcdConfig(),   // 注册 etcd 操作
 		).
 		Mount("",
 			&ctrls.Fast{},
