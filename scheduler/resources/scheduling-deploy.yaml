@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-scheduling
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-scheduling
+  template:
+    metadata:
+      labels:
+        app: test-scheduling
+    spec:
+      nodeName: cluster02-2 # 固定调度到指定节点
+      serviceAccount: test-scheduling-sa
+      containers:
+        - name: tests-cheduling
+          image: alpine:3.12
+          imagePullPolicy: IfNotPresent
+          command: ["/app/test-scheduling"]
+          args:
+            - --config=/etc/kubernetes/config.yaml
+            - --v=3
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kubernetes
+            - name: app
+              mountPath: /app
+      volumes:
+        - name: config
+          configMap:
+            name: test-scheduling-config
+        - name: app
+          hostPath:
+            path: /software/scheduler  # 把编译好的 test-scheduling 二进制文件上传到节点上

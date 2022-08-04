@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testngx
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: testngx
+  template:
+    metadata:
+      labels:
+        app: testngx
+    spec:
+      schedulerName: test-scheduling
+      containers:
+        - image: nginx:1.18-alpine
+          imagePullPolicy: IfNotPresent
+          name: testngx
+          ports:
+            - containerPort: 80
