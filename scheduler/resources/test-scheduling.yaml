@@ -162,7 +162,13 @@ data:
           filter:
             enabled:
               - name: "test-scheduling"
+          preScore:
+            enabled:
+              - name: "test-scheduling"
           score:
+            enabled:
+              - name: "test-scheduling"
+          permit:
             enabled:
               - name: "test-scheduling"
         pluginConfig:
