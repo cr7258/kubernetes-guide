@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapi
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapi
+  template:
+    metadata:
+      labels:
+        app: myapi
+    spec:
+      nodeName: cluster02-2 # 固定到节点 2 上
+      containers:
+        - name: myapi
+          image: alpine:3.12
+          imagePullPolicy: IfNotPresent
+          command: ["./myapi"]
+          workingDir: "/app"
+          ports:
+            - containerPort: 8443
+          volumeMounts:
+            - name: app
+              mountPath: /app
+      volumes:
+        - name: app
+          hostPath:
+            path: /software/aapi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapi
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8443
+      targetPort: 8443
+  selector:
+    app: myapi

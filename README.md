@@ -5,3 +5,4 @@
 - envoywasm：微服务实战之 wasm 扩展 envoy (go 版本)
 - k8sapi-lowcode：低代码版手撸 k8s 可视化系统（后端）
 - k8sapi-lowcode-front：低代码版手撸 k8s 可视化系统（前端）
+- aggregated-apiserver：聚合 API
