@@ -7,9 +7,13 @@ import (
 )
 
 const (
-	ApiGroup="apis.jtthink.com"
-	ApiVersion="v1beta1"
+	ApiGroup           = "apis.jtthink.com"
+	ApiVersion         = "v1beta1"
+	ApiGroupAndVersion = ApiGroup + "/" + ApiVersion
+	ResourceName       = "myingresses"
+	ResourceKind       = "MyIngress"
 )
+
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: ApiGroup, Version: ApiVersion}
 

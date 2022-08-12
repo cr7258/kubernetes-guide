@@ -5,10 +5,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/shenyisyn/aapi/pkg/apis/myingress/v1beta1"
 	"github.com/shenyisyn/aapi/pkg/builders"
+	"github.com/shenyisyn/aapi/pkg/k8sconfig"
 	"github.com/shenyisyn/aapi/pkg/store"
 	"github.com/shenyisyn/aapi/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"log"
 	"strings"
 )
@@ -104,9 +104,16 @@ var podDetail = `
 
 var (
 	ROOTURL = fmt.Sprintf("/apis/%s/%s", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version)
+	//根据NS 获取 myingress列表
+	ListByNS_URL = fmt.Sprintf("/apis/%s/%s/namespaces/:ns/%s", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version, v1beta1.ResourceName)
+	// 根据NS 获取 myingress 如 kubectl get mi abc
+	DetailByNS_URL = fmt.Sprintf("/apis/%s/%s/namespaces/:ns/%s/:name", v1beta1.SchemeGroupVersion.Group,
+		v1beta1.SchemeGroupVersion.Version, v1beta1.ResourceName)
+	PostByNS_URL = fmt.Sprintf("/apis/%s/%s/namespaces/:ns/%s", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version, v1beta1.ResourceName)
 )
 
 func main() {
+	k8sconfig.K8sInitInformer() // 启动 Informer 监听
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		c.Next()
@@ -118,45 +125,35 @@ func main() {
 
 	//列表  （根据ns)
 	r.GET("/apis/apis.jtthink.com/v1beta1/namespaces/:ns/myingresses", func(c *gin.Context) {
-		//c.Header("content-type","application/json")
-		////解析出query 参数(labelQuery)
-		//labelQueryMap:=parseLabelQuery(c.Query("labelSelector"))
-		//json:=""
-		//if v,ok:=labelQueryMap["version"];ok{
-		//	if v=="1"{
-		//		json=strings.Replace(podsListv1,"default",c.Param("ns"),-1)
-		//	}
-		//}
-		//if json==""{
-		//	json=strings.Replace(podsListv2,"default",c.Param("ns"),-1)
-		//}
-
-		c.JSON(200, utils.ConvertToTable(store.ListMemData(c.Param("ns"))))
-
+		c.JSON(200, utils.ConvertToTable(store.NewClientStore().ListByNs(c.Param("ns"))))
 	})
 
-	//列表  （所有 )
-	r.GET("/apis/apis.jtthink.com/v1beta1/mypods", func(c *gin.Context) {
-		c.Header("content-type", "application/json")
-		json := strings.Replace(podsListv1, "default", "all", -1)
-		c.String(200, json)
+	r.GET(DetailByNS_URL, func(c *gin.Context) {
+		mi, err := store.NewClientStore().GetByNs(c.Param("name"), c.Param("ns"))
+		if err != nil {
+			status := utils.NotFoundStatus(fmt.Sprintf("你要的Ingress:%s在%s这个命名空间没找到，去别地儿看看？",
+				c.Param("name"), c.Param("ns")))
+			c.AbortWithStatusJSON(404, status)
+			return
+		}
+		c.JSON(200, utils.ConvertToTable(mi))
 	})
 
-	//详细 （根据ns)
-	r.GET("/apis/apis.jtthink.com/v1beta1/namespaces/:ns/mypods/:name", func(c *gin.Context) {
-
-		t := metav1.Table{}
-		t.Kind = "Table"
-		t.APIVersion = "meta.k8s.io/v1"
-		t.ColumnDefinitions = []metav1.TableColumnDefinition{
-			{Name: "name", Type: "string"},
-			{Name: "命名空间", Type: "string"},
-			{Name: "状态", Type: "string"},
+	r.POST(PostByNS_URL, func(c *gin.Context) {
+		mi := &v1beta1.MyIngress{}
+		err := c.ShouldBindJSON(mi)
+		if err != nil {
+			c.AbortWithStatusJSON(400, utils.ErrorStatus(400, err.Error(), metav1.StatusReasonBadRequest))
+			return
 		}
-		t.Rows = []metav1.TableRow{
-			{Cells: []interface{}{c.Param("name"), c.Param("ns"), "准备好了"}},
+		//创建真实的Ingress
+		err = builders.CreateIngress(mi)
+		if err != nil {
+			c.AbortWithStatusJSON(400,
+				utils.ErrorStatus(400, err.Error(), metav1.StatusReasonBadRequest))
+			return
 		}
-		c.JSON(200, t)
+		c.JSON(200, mi)
 
 	})
 

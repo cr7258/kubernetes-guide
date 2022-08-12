@@ -1,0 +1,9 @@
+apiVersion: apis.jtthink.com/v1beta1
+kind: MyIngress
+metadata:
+  name: mi1
+  namespace: default
+spec:
+  host: abc.com
+  path: /
+  service: test:9090

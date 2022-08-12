@@ -13,6 +13,7 @@ spec:
       labels:
         app: myapi
     spec:
+      serviceAccountName: jtthink-aa-sa
       nodeName: cluster02-2 # 固定到节点 2 上
       containers:
         - name: myapi
