@@ -104,12 +104,16 @@ var podDetail = `
 
 var (
 	ROOTURL = fmt.Sprintf("/apis/%s/%s", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version)
+	// 获取所有 myingress
+	ListAll_URL = fmt.Sprintf("/apis/%s/%s/%s", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version, v1beta1.ResourceName)
 	//根据NS 获取 myingress列表
 	ListByNS_URL = fmt.Sprintf("/apis/%s/%s/namespaces/:ns/%s", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version, v1beta1.ResourceName)
 	// 根据NS 获取 myingress 如 kubectl get mi abc
 	DetailByNS_URL = fmt.Sprintf("/apis/%s/%s/namespaces/:ns/%s/:name", v1beta1.SchemeGroupVersion.Group,
 		v1beta1.SchemeGroupVersion.Version, v1beta1.ResourceName)
 	PostByNS_URL = fmt.Sprintf("/apis/%s/%s/namespaces/:ns/%s", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version, v1beta1.ResourceName)
+	// apply -->存在的情况下
+	PatchByNS_URL = fmt.Sprintf("/apis/%s/%s/namespaces/:ns/%s/:name", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version, v1beta1.ResourceName)
 )
 
 func main() {
@@ -123,11 +127,31 @@ func main() {
 		c.JSON(200, builders.ApiResourceList())
 	})
 
-	//列表  （根据ns)
-	r.GET("/apis/apis.jtthink.com/v1beta1/namespaces/:ns/myingresses", func(c *gin.Context) {
-		c.JSON(200, utils.ConvertToTable(store.NewClientStore().ListByNs(c.Param("ns"))))
+	// 获取所有
+	r.GET(ListAll_URL, func(c *gin.Context) {
+		list, err := store.NewClientStore().
+			ListByNsOrAll("") //取全部
+		if err != nil {
+			status := utils.NotFoundStatus("Ingress列表不存在")
+			c.AbortWithStatusJSON(404, status)
+			return
+		}
+		c.JSON(200, utils.ConvertToTable(list))
 	})
 
+	// 根据 namespace 获取
+	r.GET(ListByNS_URL, func(c *gin.Context) {
+		list, err := store.NewClientStore().
+			ListByNsOrAll(c.Param("ns"))
+		if err != nil {
+			status := utils.NotFoundStatus("Ingress列表不存在")
+			c.AbortWithStatusJSON(404, status)
+			return
+		}
+		c.JSON(200, utils.ConvertToTable(list))
+	})
+
+	// 获取具体资源 kubectl get mi mi1
 	r.GET(DetailByNS_URL, func(c *gin.Context) {
 		mi, err := store.NewClientStore().GetByNs(c.Param("name"), c.Param("ns"))
 		if err != nil {
@@ -136,9 +160,11 @@ func main() {
 			c.AbortWithStatusJSON(404, status)
 			return
 		}
-		c.JSON(200, utils.ConvertToTable(mi))
+		//c.JSON(200, utils.ConvertToTable(mi))
+		c.JSON(200, mi)
 	})
 
+	// 新增
 	r.POST(PostByNS_URL, func(c *gin.Context) {
 		mi := &v1beta1.MyIngress{}
 		err := c.ShouldBindJSON(mi)
@@ -154,7 +180,26 @@ func main() {
 			return
 		}
 		c.JSON(200, mi)
+	})
 
+	//  如果已经存在， 执行 patch 请求
+	r.PATCH(PatchByNS_URL, func(c *gin.Context) {
+		apply := &v1beta1.MyIngress{} //
+		err := c.ShouldBindJSON(&apply)
+		if err != nil {
+			c.AbortWithStatusJSON(400,
+				utils.ErrorStatus(400, err.Error(),
+					metav1.StatusReasonBadRequest))
+			return
+		}
+
+		newMi, err := builders.PatchIngress(apply)
+		if err != nil {
+			c.AbortWithStatusJSON(400,
+				utils.ErrorStatus(400, err.Error(), metav1.StatusReasonBadRequest))
+			return
+		}
+		c.JSON(200, newMi)
 	})
 
 	//  8443  没有为啥

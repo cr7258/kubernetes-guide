@@ -43,6 +43,7 @@ rules:
       - list
       - create
       - delete
+      - update
       - put
       - watch
   - apiGroups:
