@@ -1,0 +1,26 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: myhood
+webhooks:
+  - clientConfig:
+      caBundle: |
+        LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURZakNDQWtxZ0F3SUJBZ0lVQlpCOU4rNEdGZkFYRHZtNW81Z2JFNC9ZalNBd0RRWUpLb1pJaHZjTkFRRUwKQlFBd1NURUxNQWtHQTFVRUJoTUNlbWd4Q3pBSkJnTlZCQWNUQW1KcU1Rc3dDUVlEVlFRS0V3SmlhakVMTUFrRwpBMVVFQ3hNQ1EwRXhFekFSQmdOVkJBTVRDa3QxWW1WeWJtVjBaWE13SGhjTk1qSXdPREUwTVRRek1EQXdXaGNOCk1qY3dPREV6TVRRek1EQXdXakJKTVFzd0NRWURWUVFHRXdKNmFERUxNQWtHQTFVRUJ4TUNZbW94Q3pBSkJnTlYKQkFvVEFtSnFNUXN3Q1FZRFZRUUxFd0pEUVRFVE1CRUdBMVVFQXhNS1MzVmlaWEp1WlhSbGN6Q0NBU0l3RFFZSgpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFOeVB6S3FrSWx2a3BqbjlDQ3NrSnJNRENUcmRzem93CitrTFhzYjhsU1M2eDM5QU5FQ2I4M0J1UnBacEJuOUNsRW1ReGYwVjJDbTIwaXZDdnNLVllwdmNXdUNZbVJ1MmIKT1Y2Z1pieVNQYkN4QmxlRFBXWTJvOW95M2lXcjkreHFKWTNaRnczWXhmbi9neGNteTdTMldSSm1LcnY1aE9NYQppYkxlbkVMQmY1MU8ybFEveFlPY0hCSTRRSGs1cVZ5WUg4NXREUXpKMEJkaU5mamVSUG1mbnR3K2JYOXREQVpuCnIrODk4RHo0ZVBhVlUxZXVxWllLWjA4a0xTWWtTS0N4bVcwbEVWNlNzSi80QTcydGx4ZkF6U2JJT3h2eVlzSGIKejlJUG1OMWYzOUNyZ25PRmQzL2VLNnhXM09pSmQvbkFlQm5OcWpjeVdQTTkyeXY3NFpiMGlLMENBd0VBQWFOQwpNRUF3RGdZRFZSMFBBUUgvQkFRREFnRUdNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdIUVlEVlIwT0JCWUVGUHFmCjdKczQyY1hVNEhDRDdCLzRRVmlCbzhJb01BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQVhTR01JazZEejM0TVoKaFFsdVJMQ0VnT3dCT0RydWxRSG5PN3lRVzdGSE9LZ0VkcmpXVGlaeWFsTjhxL0U0L2s2UDZ0aUNxMmk3bmJrdApLWDcvcEI4dTZPdFRvamtBZThDdkhKRmphdUFQbzk5bWZlRnNaYlY5VmdYcm1PMXBZYlMzMkQ4a256NDRpVnVTCjhUOU5qRmY2bUhrYUN4eDlKSG9IV0Z6RkxPcUtIMUpUeWFvSE0yVmRxcWt0WW1DVGZsWENZVTl1eEhtT3FtdTAKYzJ1VjhKNCszUkJZRE9WSEJPVVhncVRGbjNtYUNGQkFTd3V6YXRQeHFwVFdlN2hRT2h0eFNIVTlEVmI5YUh1MApRZk9VOG02SUdqc2k0c3lqZVIzRVdWQjZFTGpLYmpjcjgwbjNnajdtd2J5eWRIdmJtT2pxUmd4VjJ1S3dCRnhHCmJVUGNMelJUCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+      service:
+        name: myhook
+        namespace: kube-system
+        path: /pods
+    failurePolicy: Fail
+    sideEffects: NoneOnDryRun
+    name: myhook.jtthink.com
+    admissionReviewVersions: ["v1", "v1beta1"]
+    namespaceSelector: # 选择 jtthink-injection=enabled 标签的命名空间
+      matchExpressions:
+        - key: jtthink-injection
+          operator: In
+          values: [ "enabled"]
+    rules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["pods"]

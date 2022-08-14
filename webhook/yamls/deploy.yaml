@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myhook
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myhook
+  template:
+    metadata:
+      labels:
+        app: myhook
+    spec:
+      nodeName: cluster02-2
+      containers:
+        - name: myhook
+          image: alpine:3.12
+          imagePullPolicy: IfNotPresent
+          command: ["/app/myhook"]
+          volumeMounts:
+            - name: hooktls
+              mountPath: /etc/webhook/certs
+              readOnly: true
+            - name: app
+              mountPath: /app
+          ports:
+            - containerPort: 443
+      volumes:
+        - name: app
+          hostPath:
+            path: /software/webhook
+        - name: hooktls
+          secret:
+            secretName: myhook
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myhook
+  namespace: kube-system
+  labels:
+    app: myhook
+spec:
+  type: ClusterIP
+  ports:
+    - port: 443
+      targetPort: 443
+  selector:
+    app: myhook
