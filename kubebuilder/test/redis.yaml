@@ -1,0 +1,7 @@
+apiVersion: myapp.jtthink.com/v1
+kind: Redis
+metadata:
+  name: myredis
+spec:
+  num: 5
+  port: 6379

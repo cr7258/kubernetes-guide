@@ -1,0 +1,16 @@
+domain: jtthink.com
+layout:
+- go.kubebuilder.io/v3
+projectName: kubebuilder
+repo: jtapp
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: jtthink.com
+  group: myapp
+  kind: Redis
+  path: jtapp/api/v1
+  version: v1
+version: "3"
