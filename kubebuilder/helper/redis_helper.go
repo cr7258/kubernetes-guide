@@ -5,7 +5,10 @@ import (
 	"fmt"
 	v1 "jtapp/api/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func GetRedisPodNames(redisConfig *v1.Redis) []string {
@@ -19,17 +22,21 @@ func GetRedisPodNames(redisConfig *v1.Redis) []string {
 
 }
 
-func IsExist(podName string, redis *v1.Redis) bool {
-	for _, po := range redis.Finalizers {
-		if podName == po {
-			return true
-		}
+// 判断redis pod 是否 能获取
+func IsExistPod(podName string, redis *v1.Redis, client client.Client) bool {
+	err := client.Get(context.Background(),
+		types.NamespacedName{Namespace: redis.Namespace, Name: podName}, &corev1.Pod{})
+	if err != nil {
+		return false
 	}
-	return false
-}
+	return true
 
-func CreateRedis(client client.Client, redisConfig *v1.Redis, podName string) (string, error) {
-	if IsExist(podName, redisConfig) {
+}
+func CreateRedis(client client.Client, redisConfig *v1.Redis, podName string, schema *runtime.Scheme) (string, error) {
+	//if  IsExistInFinalizers(podName, redisConfig) {
+	//	return "", nil
+	//}
+	if IsExistPod(podName, redisConfig, client) { //如果Pod已经存在，则不处理
 		return "", nil
 	}
 	newpod := &corev1.Pod{}
@@ -47,5 +54,16 @@ func CreateRedis(client client.Client, redisConfig *v1.Redis, podName string) (s
 			},
 		},
 	}
-	return podName, client.Create(context.Background(), newpod)
+	// 设置 OwnerReference
+	err := controllerutil.SetControllerReference(redisConfig, newpod, schema)
+	if err != nil {
+		return "", err
+	}
+	//return podName, client.Create(context.Background(), newpod)
+	err = client.Create(context.Background(), newpod)
+	if err != nil {
+		return podName, err
+	}
+
+	return podName, nil
 }

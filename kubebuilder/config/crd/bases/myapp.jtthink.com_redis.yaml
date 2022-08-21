@@ -15,7 +15,11 @@ spec:
     singular: redis
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .status.num
+      name: redisnum
+      type: integer
+    name: v1
     schema:
       openAPIV3Schema:
         description: Redis is the Schema for the redis API
@@ -46,6 +50,14 @@ spec:
             type: object
           status:
             description: RedisStatus defines the observed state of Redis
+            properties:
+              num:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: integer
+            required:
+            - num
             type: object
         type: object
     served: true
