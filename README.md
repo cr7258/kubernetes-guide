@@ -8,3 +8,4 @@
 - aggregated-apiserver：聚合 API
 - webhook：准入控制器
 - kubebuilder：Operator 和 Kubebuilder 入门
+- operator-1：k8s 原生 http ingress 网关

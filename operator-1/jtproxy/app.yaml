@@ -1,0 +1,12 @@
+server:
+  port: 80
+ingress:
+  rules:
+    - http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: www.jtthink.com
+                port:
+                  number: 80
