@@ -11,12 +11,15 @@ import (
 func ProxyHandler(ctx *fasthttp.RequestCtx) {
 	//代表匹配到了 path
 	if getProxy := sysinit.GetRoute(ctx.Request); getProxy != nil {
-		filters.ProxyFilters(getProxy.Filters).Do(ctx) //过滤
-		getProxy.Proxy.ServeHTTP(ctx)                  //反代
+		filters.ProxyFilters(getProxy.RequestFilters).Do(ctx)  //过滤
+		getProxy.Proxy.ServeHTTP(ctx)                          //反代
+		filters.ProxyFilters(getProxy.ResponseFilters).Do(ctx) //过滤
 	} else {
 		ctx.Response.SetStatusCode(404)
 		ctx.Response.SetBodyString("404...")
 	}
+
+	// jtthink.ServeHTTP(ctx)
 
 }
 

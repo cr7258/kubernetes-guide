@@ -12,8 +12,9 @@ import (
 )
 
 type ProxyHandler struct {
-	Proxy   *proxy.ReverseProxy // proxy对象。 保存proxy
-	Filters []filters.ProxyFileter
+	Proxy           *proxy.ReverseProxy // proxy对象。 保存proxy
+	RequestFilters  []filters.ProxyFileter
+	ResponseFilters []filters.ProxyFileter
 }
 
 //空函数没啥用
@@ -35,7 +36,8 @@ func ParseRule() {
 					SetPath(path.Path, path.PathType != nil && *path.PathType == v1.PathTypeExact).
 					SetHost(rule.Host, rule.Host != "").
 					Build(&ProxyHandler{Proxy: rProxy,
-						Filters: filters.CheckAnnotations(ingress.Annotations),
+						RequestFilters:  filters.CheckAnnotations(ingress.Annotations, false),
+						ResponseFilters: filters.CheckAnnotations(ingress.Annotations, true),
 					})
 
 			}
@@ -57,9 +59,10 @@ func GetRoute(req fasthttp.Request) *ProxyHandler {
 		proxyHandler := match.Handler.(*ProxyHandler)
 		pathExp, err := match.Route.GetPathRegexp() //对过滤器 塞值：  path
 		// 譬如这样：^/users/(?P<v0>[^/]+)
-
 		if err == nil {
-			filters.ProxyFilters(proxyHandler.Filters).SetPath(pathExp)
+			//不管是 Request还是Reponse都要设置path
+			filters.ProxyFilters(proxyHandler.RequestFilters).SetPath(pathExp)
+			filters.ProxyFilters(proxyHandler.ResponseFilters).SetPath(pathExp)
 		}
 		return proxyHandler
 	}
