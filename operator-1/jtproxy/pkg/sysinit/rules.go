@@ -29,7 +29,6 @@ func ParseRule() {
 				//构建 反代对象
 				rProxy := proxy.NewReverseProxy(
 					fmt.Sprintf("%s:%d", path.Backend.Service.Name, path.Backend.Service.Port.Number))
-				//本课程来自程序员在囧途 (www.jtthink.com)咨询群：98514334
 				routeBud := NewRouteBuilder()
 
 				routeBud.

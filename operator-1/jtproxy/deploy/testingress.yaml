@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-myservicea
+  annotations:
+    jtthink.ingress.kubernetes.io/add-response-header: ret=okabc
+    kubernetes.io/ingress.class: "jtthink"
+spec:
+  rules:
+    - host: aabb.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jtapp
+                port:
+                  number: 10000
