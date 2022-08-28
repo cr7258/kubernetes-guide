@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: nettool-1
+  name: nettool-1
+spec:
+  containers:
+  - image: cr7258/nettool:v1
+    name: nettool-1
+  nodeSelector:
+    rack: rack0 
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: nettool-2
+  name: nettool-2
+spec:
+  containers:
+  - image: cr7258/nettool:v1
+    name: nettool-2
+  nodeSelector:
+    rack: rack1 
