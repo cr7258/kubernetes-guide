@@ -1,0 +1,8 @@
+[
+  {
+    "Namespace": "net",
+    "Labels": {
+      "app": "web"
+    }
+  }
+]

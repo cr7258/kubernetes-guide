@@ -1,0 +1,38 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  # 名字必需与下面的 spec 字段匹配，并且格式为 '<名称的复数形式>.<组名>'
+  name: dbconfigs.api.jtthink.com
+spec:
+  # 分组名，在REST API中也会用到的，格式是: /apis/分组名/CRD版本
+  group: api.jtthink.com
+  # 列举此 CustomResourceDefinition 所支持的版本
+  versions:
+    - name: v1
+      # 是否有效
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                replicas:
+                  type: integer
+                dsn:
+                  type: string
+  # 范围是属于namespace的 ,可以是 Namespaced 或 Cluster
+  scope: Namespaced
+  names:
+    # 复数名
+    plural: dbconfigs
+    # 单数名
+    singular: dbconfig
+    # 类型名
+    kind: DbConfig
+    listKind: DbConfigList
+    # kind的简称，就像service的简称是svc
+    shortNames:
+      - dc

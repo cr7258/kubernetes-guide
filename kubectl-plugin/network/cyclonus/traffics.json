@@ -1,0 +1,18 @@
+[
+  {
+    "Source": {
+      "Internal": {
+        "PodLabels": {"app": "client"},
+        "Namespace": "net"
+      }
+    },
+    "Destination": {
+      "Internal": {
+        "PodLabels": {"ap": "database"},
+        "Namespace": "net"
+      }
+    },
+    "Protocol": "TCP",
+    "ResolvedPort": 3306
+  }
+]

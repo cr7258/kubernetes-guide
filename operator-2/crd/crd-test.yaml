@@ -1,0 +1,7 @@
+apiVersion: api.jtthink.com/v1
+kind: DbConfig
+metadata:
+  name: mydbconfig
+spec:
+  replicas: 1
+  dsn: "mysql dsn"

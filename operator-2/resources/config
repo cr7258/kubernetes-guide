@@ -1,0 +1,32 @@
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority: /Users/I576375/.minikube/ca.crt
+    extensions:
+    - extension:
+        last-update: Sat, 17 Sep 2022 21:43:57 CST
+        provider: minikube.sigs.k8s.io
+        version: v1.27.0
+      name: cluster_info
+    server: https://127.0.0.1:57779
+  name: demo
+contexts:
+- context:
+    cluster: demo
+    extensions:
+    - extension:
+        last-update: Sat, 17 Sep 2022 21:43:57 CST
+        provider: minikube.sigs.k8s.io
+        version: v1.27.0
+      name: context_info
+    namespace: default
+    user: demo
+  name: demo
+current-context: demo
+kind: Config
+preferences: {}
+users:
+- name: demo
+  user:
+    client-certificate: /Users/I576375/.minikube/profiles/demo/client.crt
+    client-key: /Users/I576375/.minikube/profiles/demo/client.key

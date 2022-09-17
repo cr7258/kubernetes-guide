@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: net
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: client
+  name: client
+  namespace: net
+spec:
+  containers:
+  - image: cr7258/nettool:v1
+    name: client
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: web
+  name: web
+  namespace: net
+spec:
+  containers:
+  - image: nginx:1.19.1
+    name: web
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: database
+  name: database
+  namespace: net
+spec:
+  containers:
+  - image: mysql:5.7
+    name: database
