@@ -11,4 +11,4 @@
 - operator-1：k8s 原生 http ingress 网关
 - operator-2：通用 DB 服务 Operator 开发
 - observability：K8S 可观测实战开发入门篇
-- opentelemetry：opentelemetry 官方示例
+- rust-wasm: Rust+Wasm 入门基础速学篇
