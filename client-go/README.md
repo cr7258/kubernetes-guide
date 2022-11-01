@@ -1,100 +1,15 @@
-# Installing client-go
+# client-go 四种类型
+## RestClient
+RestClient 是最基础的客户端，RestClient 基于 HTTP request 进行了封装，实现了 Restful 的 API，可以直接通过 RESTClient 提供的 RESTful 方法如 Get()，Put()，Post()，Delete() 进行交互,同时支持 Json 和 protobuf,支持所有原生资源和 CRD。一般来说，为了更为优雅的处理，需要进一步封装，通过 Clientset 封装 RESTClient，然后再对外提供接口和服务。
 
-## Using the latest version
+## ClientSet
+ClientSet 在 RestClient 的基础上封装了对 Resouorce 和 Version 的管理方法。一个 Resource 可以理解为一个客户端，而 ClientSet 是多个客户端的集合。
+其操作资源对象时需要指定 Group、指定 Version，然后根据 Resource 获取，但是 ClientSet 不支持自定义 CRD。
 
-If you want to use the latest version of this library, use go1.16+ and run:
+## DynamicClient
+DynamicClient 是一种动态客户端它可以对任何资源进行 Restful 操作，包括 CRD 自定义资源，不同于 ClientSet，DynamicClient 返回的对象是一个 map[string]interface{}，如果一个 controller 中需要控制所有的 API，可以使用 DynamicClient，目前它在 garbage collector 和 namespace controller 中被使用。
+DynamicClient 的处理过程将 Resource，例如 podlist 转换为 unstructured 类型，k8s 的所有 Resource 都可以转换为这个结构类型，处理完之后再转换为 podlist，整个转换过程类似于接口转换就是通过 interface{} 的断言。
+DynamicClient 是一种动态的 client，它能处理 kubernetes 所有的资源，只支持 JSON。
 
-```sh
-go get k8s.io/client-go@latest
-```
-
-This will record a dependency on `k8s.io/client-go` in your go module.
-You can now import and use the `k8s.io/client-go` APIs in your project.
-The next time you `go build`, `go test`, or `go run` your project,
-`k8s.io/client-go` and its dependencies will be downloaded (if needed),
-and detailed dependency version info will be added to your `go.mod` file
-(or you can also run `go mod tidy` to do this directly).
-
-## Using a specific version
-
-If you want to use a particular version of the `k8s.io/client-go` library,
-you can indicate which version of `client-go` your project requires:
-
-- If you are using Kubernetes versions >= `v1.17.0`, use a corresponding `v0.x.y` tag.
-  For example, `k8s.io/client-go@v0.20.4` corresponds to Kubernetes `v1.20.4`:
-
-```sh
-go get k8s.io/client-go@v0.20.4
-```
-
-- If you are using Kubernetes versions < `v1.17.0`, use a corresponding `kubernetes-1.x.y` tag.
-  For example, `k8s.io/client-go@kubernetes-1.16.3` corresponds to Kubernetes `v1.16.3`:
-
-```sh
-go get k8s.io/client-go@kubernetes-1.16.3
-```
-
-You can now import and use the `k8s.io/client-go` APIs in your project.
-The next time you `go build`, `go test`, or `go run` your project,
-`k8s.io/client-go` and its dependencies will be downloaded (if needed),
-and detailed dependency version info will be added to your `go.mod` file
-(or you can also run `go mod tidy` to do this directly).
-
-## Troubleshooting
-
-### Go versions prior to 1.16
-
-If you get a message like 
-`module k8s.io/client-go@latest found (v1.5.2), but does not contain package k8s.io/client-go/...`,
-you are likely using a go version prior to 1.16 and must explicitly specify the k8s.io/client-go version you want.
-For example:
-```sh
-go get k8s.io/client-go@v0.20.4
-```
-
-### Conflicting requirements for older client-go versions
-
-If you get a message like
-`module k8s.io/api@latest found, but does not contain package k8s.io/api/auditregistration/v1alpha1`,
-something in your build is likely requiring an old version of `k8s.io/client-go` like `v11.0.0+incompatible`.
-
-First, try to fetch a more recent version. For example:
-```sh
-go get k8s.io/client-go@v0.20.4
-```
-
-If that doesn't resolve the problem, see what is requiring an `...+incompatible` version of client-go,
-and update to use a newer version of that library, if possible:
-```sh
-go mod graph | grep " k8s.io/client-go@"
-```
-
-As a last resort, you can force the build to use a specific version of client-go,
-even if some of your dependencies still want `...+incompatible` versions. For example:
-```sh
-go mod edit -replace=k8s.io/client-go=k8s.io/client-go@v0.20.4
-go get k8s.io/client-go@v0.20.4
-```
-
-### Go modules disabled
-
-If you get a message like `cannot use path@version syntax in GOPATH mode`,
-you likely do not have go modules enabled.
-
-Dependency management tools are built into go 1.11+ in the form of 
-[go modules](https://github.com/golang/go/wiki/Modules).
-These are used by the main Kubernetes repo (>= `v1.15.0`) and 
-`client-go` (>= `kubernetes-1.15.0`) to manage dependencies.
-If you are using go 1.11 or 1.12 and are working with a project located within `$GOPATH`,
-you must opt into using go modules:
-
-```sh
-export GO111MODULE=on
-```
-
-Ensure your project has a `go.mod` file defined at the root of your project.
-If you do not already have one, `go mod init` will create one for you:
-
-```sh
-go mod init
-```
+## DiscoveryClient
+DiscoveryClient 是发现客户端，主要用于发现 Api Server 支持的资源组，资源版本和资源信息。kubectl 的 api-version 和 api-resource 也是通过 DiscoveryClient 来实现的，还可以将信息缓存在本地 cache，以减轻 API Server 的访问压力，默认在 ./kube/cache 和 ./kube/http-cache 下。
