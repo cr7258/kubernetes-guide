@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8splay1
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: k8splay1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: k8splay1
+    spec:
+      nodeName: k8s02
+      shareProcessNamespace: true # share the process namespace
+      containers:
+        - name: k8splayapp1
+          image: byrnedo/alpine-curl
+          imagePullPolicy: IfNotPresent
+          command: ["./app1"]
+          workingDir: /app
+          volumeMounts:
+            - name: app
+              mountPath: /app
+          ports:
+            - containerPort: 8080
+        - name: k8splayapp2
+          image: byrnedo/alpine-curl
+          imagePullPolicy: IfNotPresent
+          command: [ "./app2" ]
+          workingDir: /app
+          volumeMounts:
+            - name: app
+              mountPath: /app
+          ports:
+            - containerPort: 8081
+      volumes:
+        - name: app
+          hostPath:
+             path: /root/app

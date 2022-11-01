@@ -12,3 +12,4 @@
 - operator-2：通用 DB 服务 Operator 开发
 - observability：K8S 可观测实战开发入门篇
 - rust-wasm: Rust+Wasm 入门基础速学篇
+- client-plugin-development: K8S 运维级开发:客户端插件开发实战、命令行可视化
