@@ -5,7 +5,7 @@ go build -o ~/.krew/bin/kubectl-pods main.go
 
 ## use kubectl plugin
 ```bash
-kubectl pods
+kubectl pods list
 ```
 
 ## table format
@@ -15,7 +15,7 @@ https://github.com/olekukonko/tablewriter
 ```
 table rendering effect
 ```bash
-> kubectl pods   
+> kubectl pods list 
 +---------------------------+-----------+----------------+---------+
 |           NAME            | NAMESPACE |       IP       | STATUS  |
 +---------------------------+-----------+----------------+---------+
@@ -23,4 +23,10 @@ table rendering effect
 | nettool                   | default   | 10.244.236.177 | Running |
 | nettool2                  | default   | 10.244.73.82   | Running |
 +---------------------------+-----------+----------------+---------+                                                      
+```
+
+## interactive
+enter interactive mode
+```bash
+kubectl pods prompt 
 ```
