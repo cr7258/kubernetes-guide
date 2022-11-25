@@ -12,6 +12,13 @@ spec:
       # 是否有效
       served: true
       storage: true
+      additionalPrinterColumns:
+        - name: replicas
+          type: string
+          jsonPath: .spec.status.replicas
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
       schema:
         openAPIV3Schema:
           type: object
@@ -21,8 +28,26 @@ spec:
               properties:
                 replicas:
                   type: integer
+                  minimum: 1
+                  maximum: 20
                 dsn:
                   type: string
+              required:
+                - replicas
+                - dsn
+            status:
+              type: object
+              properties:
+                replicas:
+                  type: string
+      subresources:
+        status: {}
+        scale:
+          # specReplicasPath 定义定制资源中对应 scale.spec.replicas 的 JSON 路径
+          specReplicasPath: .spec.replicas
+          # statusReplicasPath 定义定制资源中对应 scale.status.replicas 的 JSON 路径
+          statusReplicasPath: .status.replicas
+
   # 范围是属于namespace的 ,可以是 Namespaced 或 Cluster
   scope: Namespaced
   names:

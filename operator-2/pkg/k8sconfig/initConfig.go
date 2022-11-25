@@ -3,8 +3,10 @@ package k8sconfig
 import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 //全局变量
@@ -27,7 +29,8 @@ func K8sRestConfig() *rest.Config {
 		return K8sRestConfigInPod()
 	}
 	log.Println("run outside cluster")
-	config, err := clientcmd.BuildConfigFromFlags("", "./resources/config")
+	home := homedir.HomeDir()
+	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(home, ".kube", "config"))
 	if err != nil {
 		log.Fatal(err)
 	}

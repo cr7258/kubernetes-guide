@@ -19,3 +19,36 @@ github.com/shenyisyn/dbcore/pkg/apis dbconfig:v1 \
 参考：
 https://www.cnblogs.com/Cylon/p/16394839.html
 https://github.com/rook/rook/issues/5083
+
+## 设置属性
+- CRD 说明：
+https://kubernetes.io/zh/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#validation
+- OpenAPI 规范文档：
+https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.0.md
+
+## 设置显示的列
+```yaml
+additionalPrinterColumns:
+- name: replicas
+  type: string
+  jsonPath: .spec.status.replicas
+- name: Age
+  type: date
+  jsonPath: .metadata.creationTimestamp
+```
+
+## 伸缩属性设置
+```yaml
+subresources:
+status: {}
+scale:
+  # specReplicasPath 定义定制资源中对应 scale.spec.replicas 的 JSON 路径
+  specReplicasPath: .spec.replicas
+  # statusReplicasPath 定义定制资源中对应 scale.status.replicas 的 JSON 路径
+  statusReplicasPath: .status.replicas
+```
+
+扩缩容
+```bash
+kubectl scale --replicas=3 dc/mydbconfig
+```

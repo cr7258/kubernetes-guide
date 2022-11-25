@@ -33,5 +33,5 @@ type DbConfigSpec struct {
 }
 
 type DbConfigStatus struct {
-	Replicas int
+	Replicas string `json:"replicas,omitempty"`
 }
