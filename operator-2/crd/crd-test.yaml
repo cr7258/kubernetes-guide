@@ -3,5 +3,5 @@ kind: DbConfig
 metadata:
   name: mydbconfig
 spec:
-  replicas: 1
+  replicas: 2
   dsn: "mysql dsn"

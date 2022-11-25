@@ -52,3 +52,37 @@ scale:
 ```bash
 kubectl scale --replicas=3 dc/mydbconfig
 ```
+
+## 级联删除
+
+设置 OwnerReferences 属性。删除我们自定义的 DC 对象时，会同时删除关联的 Deployment 对象。
+
+```go
+this.deploy.OwnerReferences=append(this.deploy.OwnerReferences,
+	  	v1.OwnerReference{
+	  	   APIVersion: this.config.APIVersion,
+	  	   Kind:this.config.Kind,
+	  	   Name: this.config.Name,
+			UID:this.config.UID,
+		})
+```
+
+https://kubernetes.io/zh-cn/docs/concepts/architecture/garbage-collection/
+
+## 重新拉起被手工删掉的资源
+
+监听 Deployment 对象的 OnDelete 事件，当 Deployment 被删除时，重新放入 Reconcile。 
+```go
+func (r *DbConfigController) OnDelete(event event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
+	for _, ref := range event.Object.GetOwnerReferences() {
+		if ref.Kind == "DbConfig" && ref.APIVersion == "api.jtthink.com/v1" {
+			limitingInterface.Add(
+				reconcile.Request{ // 重新把对象放入 reconcile
+					types.NamespacedName{
+						Name: ref.Name, Namespace: event.Object.GetNamespace(),
+					},
+				})
+		}
+	}
+}
+```
