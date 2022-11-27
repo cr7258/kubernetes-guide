@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>程序员在囧途 沉浸式k8s插件</title>
+
+</head>
+<body>
+<h1>
+    程序员在囧途(www.jtthink.com) 沉浸式k8s插件
+</h1>
+     {{ if eq .Step "deploy_create"  }}
+          {{template "deploy_create" . }}
+     {{end}}
+    {{ if eq .Step "deploy_list"  }}
+       {{template "deploy_list" . }}
+    {{end}}
+</body>
+</html>
