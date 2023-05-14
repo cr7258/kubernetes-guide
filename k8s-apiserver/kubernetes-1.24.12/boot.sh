@@ -1,0 +1,12 @@
+go run -mod=mod cmd/kube-apiserver/apiserver.go \
+--etcd-servers=http://127.0.0.1:2379 \
+--service-account-issuer=https://kubernetes.default.svc.cluster.local \
+--authorization-mode=Node,Webhook \
+--service-account-key-file=./certs/sa.crt \
+--service-account-signing-key-file=./certs/sa.key \
+--service-cluster-ip-range=10.96.0.0/12 \
+--tls-cert-file=./certs/apiserver.crt \
+--tls-private-key-file=./certs/apiserver.key \
+--runtime-config=authorization.k8s.io/v1beta1=true \
+--authorization-webhook-config-file=../webhook/config \
+--feature-gates=TTLAfterFinished=true,EphemeralContainers=true

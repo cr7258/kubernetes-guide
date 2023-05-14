@@ -1,0 +1,34 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+reviewers:
+  - bentheelder
+  - cblecker
+  - fejta
+  - hwdef
+  - justaugustus
+  - lavalamp
+  - SataQiu
+  - spiffxp
+  - sttts
+  - mikedanese
+approvers:
+  - bentheelder
+  - cblecker
+  - deads2k
+  - dims # for local-up-cluster related files
+  - enj # for sig-auth related stuff like cert testdata
+  - fejta
+  - lavalamp
+  - liggitt
+  - pwittrock
+  - SataQiu
+  - soltysh # for sig-cli related stuff
+  - spiffxp
+  - sttts
+  - mikedanese
+emeritus_approvers:
+  - eparis
+  - ixdy
+  - jbeda
+  - zmerlynn
+  - vishh
