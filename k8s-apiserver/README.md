@@ -186,3 +186,80 @@ etcdctl get /registry/pods/default/nginxpod -w json | jq
 }
 ```
 
+## 简化代码启动服务
+
+```bash
+# mac 上需要执行以下步骤
+mkdir -p /var/run/kubernetes
+sudo chown -R <用户名> /var/run/kubernetes
+```
+
+使用简化的参数启动 API Server。
+
+```bash
+cd kubernetes-1.24.12/001/rest
+go run test.go
+
+# 输出以下内容
+# 经过 completedOptions.Validate() 校验，会提示我们缺少哪些参数
+[--etcd-servers must be specified service-account-issuer is a required flag --service-account-signing-key-file and --service-account-issuer are required flags]
+```
+
+缺少的参数如下：
+- etcd-servers: Etcd 的连接信息
+- service-account-issuer: ServiceAccount Token中 的签发身份，即 Token payload 中的 iss 字段。默认 https://kubernetes.default.svc
+- api-audiences: 合法的请求 Token 身份，用于 apiserver 服务端认证请求 Token 是否合法。
+- service-account-signing-key-file: Token签名私钥文件路径
+
+填充以下参数。
+
+```go
+completedOptions.Etcd.StorageConfig.Transport.ServerList = EtcdServers
+completedOptions.Authentication.ServiceAccounts.Issuers = Issuers
+completedOptions.Authentication.APIAudiences = Issuers
+completedOptions.Authentication.ServiceAccounts.KeyFiles = []string{"../../certs/sa.crt"}
+completedOptions.ServiceAccountSigningKeyFile = "../../certs/sa.key"
+
+sk, err := keyutil.PrivateKeyFromFile(completedOptions.ServiceAccountSigningKeyFile)
+completedOptions.ServiceAccountIssuer, err = serviceaccount.JWTTokenGenerator(completedOptions.Authentication.ServiceAccounts.Issuers[0], sk)
+```
+
+然后重新启动 API Server 就没有报错了。
+
+```bash
+# 输出结果
+W0514 20:03:08.722304   97857 services.go:37] No CIDR for service cluster IPs specified. Default value which was 10.0.0.0/24 is deprecated and will be removed in future releases. Please specify it using --service-cluster-ip-range on kube-apiserver.
+I0514 20:03:08.728561   97857 server.go:558] external host was not specified, using 192.168.2.150
+W0514 20:03:08.728579   97857 authentication.go:526] AnonymousAuth is not allowed with the AlwaysAllow authorizer. Resetting AnonymousAuth to false. You should use a different authorizer
+```
+
+加入 Run 相关代码。
+
+```go
+// return Run(completedOptions, genericapiserver.SetupSignalHandler())
+
+ch := genericapiserver.SetupSignalHandler()
+server, err := app.CreateServerChain(completedOptions, ch)
+if err != nil {
+    log.Fatalln(err)
+}
+
+prepared, err := server.PrepareRun()
+if err != nil {
+    log.Fatalln(err)
+}
+prepared.Run(ch)
+```
+
+浏览器输入 https://localhost:6443 访问 API Server，此时 API Server 会响应 401 Unauthorized 错误，接下来我们会在代码中去除权限认证。
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230514201119.png)
+
+## 去除权限认证
+
+在 kubernetes-1.24.12/001/rest/test.go 中添加以下内容可以去除权限认证。
+
+```go
+completedOptions.Authentication.Anonymous.Allow = true
+completedOptions.Authorization.Modes = []string{authzmodes.ModeAlwaysAllow}
+```
