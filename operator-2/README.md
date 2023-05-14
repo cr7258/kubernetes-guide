@@ -17,7 +17,6 @@ github.com/shenyisyn/dbcore/pkg/apis dbconfig:v1 \
 --go-header-file code-generator/hack/boilerplate.go.txt
 ```
 参考：
-https://www.cnblogs.com/Cylon/p/16394839.html
 https://github.com/rook/rook/issues/5083
 
 ## 设置属性
