@@ -249,14 +249,13 @@ spec:
     - client auth
 ```
 
-```bash
-### 2 手动批复
+### 3 手动批复
 
 ```bash
 kubectl certificate approve testcsr
 ```
 
-### 3 获取证书内容
+### 4 获取证书内容
 
 ```bash
 kubectl get csr  testcsr  -o jsonpath='{.status.certificate}'| base64 -d > testcsr .crt
