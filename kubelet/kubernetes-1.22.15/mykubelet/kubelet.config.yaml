@@ -16,7 +16,7 @@ authentication:
     cacheTTL: 2m0s
     enabled: true
   x509:
-    clientCAFile: ./mykubelet/certs/ca.crt # API Server 节点 /etc/kubernetes/pki
+    clientCAFile: /Users/I576375/Code/kubernetes-guide/kubelet/kubernetes-1.22.15/mykubelet/certs/ca.crt # API Server 节点 /etc/kubernetes/pki
 authorization:
   mode: Webhook
   webhook:

@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"k8s.io/kubernetes/mykubelet/mylib"
 	"math"
 	"net"
 	"net/http"
@@ -79,7 +80,6 @@ import (
 	kubeletconfiginternal "k8s.io/kubernetes/pkg/kubelet/apis/config"
 	kubeletscheme "k8s.io/kubernetes/pkg/kubelet/apis/config/scheme"
 	kubeletconfigvalidation "k8s.io/kubernetes/pkg/kubelet/apis/config/validation"
-	"k8s.io/kubernetes/pkg/kubelet/cadvisor"
 	kubeletcertificate "k8s.io/kubernetes/pkg/kubelet/certificate"
 	"k8s.io/kubernetes/pkg/kubelet/certificate/bootstrap"
 	"k8s.io/kubernetes/pkg/kubelet/cm"
@@ -220,6 +220,7 @@ HTTP server: The kubelet can also listen for HTTP and respond to a simple API
 				}
 			}
 
+			kubeletConfig.EnforceNodeAllocatable = []string{}
 			// We always validate the local configuration (command line + config file).
 			// This is the default "last-known-good" config for dynamic config, and must always remain valid.
 			if err := kubeletconfigvalidation.ValidateKubeletConfiguration(kubeletConfig); err != nil {
@@ -672,11 +673,12 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
 	}
 
 	if kubeDeps.CAdvisorInterface == nil {
-		imageFsInfoProvider := cadvisor.NewImageFsInfoProvider(s.ContainerRuntime, s.RemoteRuntimeEndpoint)
-		kubeDeps.CAdvisorInterface, err = cadvisor.New(imageFsInfoProvider, s.RootDirectory, cgroupRoots, cadvisor.UsingLegacyCadvisorStats(s.ContainerRuntime, s.RemoteRuntimeEndpoint))
-		if err != nil {
-			return err
-		}
+		//imageFsInfoProvider := cadvisor.NewImageFsInfoProvider(s.ContainerRuntime, s.RemoteRuntimeEndpoint)
+		//kubeDeps.CAdvisorInterface, err = cadvisor.New(imageFsInfoProvider, s.RootDirectory, cgroupRoots, cadvisor.UsingLegacyCadvisorStats(s.ContainerRuntime, s.RemoteRuntimeEndpoint))
+		kubeDeps.CAdvisorInterface = &mylib.MyCAdvisor{}
+		//if err != nil {
+		//	return err
+		//}
 	}
 
 	// Setup event recorder if required.
@@ -1101,9 +1103,11 @@ func setContentTypeForClient(cfg *restclient.Config, contentType string) {
 }
 
 // RunKubelet is responsible for setting up and running a kubelet.  It is used in three different applications:
-//   1 Integration tests
-//   2 Kubelet binary
-//   3 Standalone 'kubernetes' binary
+//
+//	1 Integration tests
+//	2 Kubelet binary
+//	3 Standalone 'kubernetes' binary
+//
 // Eventually, #2 will be replaced with instances of #3
 func RunKubelet(kubeServer *options.KubeletServer, kubeDeps *kubelet.Dependencies, runOnce bool) error {
 	hostname, err := nodeutil.GetHostname(kubeServer.HostnameOverride)

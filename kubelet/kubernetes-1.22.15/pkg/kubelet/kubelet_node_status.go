@@ -19,6 +19,7 @@ package kubelet
 import (
 	"context"
 	"fmt"
+	"k8s.io/kubernetes/mykubelet/mylib"
 	"net"
 	goruntime "runtime"
 	"sort"
@@ -300,13 +301,16 @@ func (kl *Kubelet) initialNode(ctx context.Context) (*v1.Node, error) {
 			Unschedulable: !kl.registerSchedulable,
 		},
 	}
-	osLabels, err := getOSSpecificLabels()
-	if err != nil {
-		return nil, err
-	}
-	for label, value := range osLabels {
-		node.Labels[label] = value
-	}
+
+	// 这里获取标签，windows 可能会出错，我们自己构建一个假的
+	mylib.SetNodeLables(node)
+	//osLabels, err := getOSSpecificLabels()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//for label, value := range osLabels {
+	//	node.Labels[label] = value
+	//}
 
 	nodeTaints := make([]v1.Taint, 0)
 	if len(kl.registerWithTaints) > 0 {

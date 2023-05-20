@@ -1,8 +1,8 @@
 apiVersion: v1
 clusters:
   - cluster:
-      certificate-authority: ./mykubelet/certs/ca.crt # API Server 节点 /etc/kubernetes/pki
-      server: https://127.0.0.1:58899
+      certificate-authority: /Users/I576375/Code/kubernetes-guide/kubelet/kubernetes-1.22.15/mykubelet/certs/ca.crt # API Server 节点 /etc/kubernetes/pki
+      server: https://127.0.0.1:38183 # API Server 地址
     name: kubernetes
 contexts:
   - context:
@@ -15,4 +15,4 @@ preferences: {}
 users:
   - name: kubelet-bootstrap
     user:
-      token: su4zyb.3e7ribf1hphsisua # 在 API Server 节点执行 kubeadm token create 获取
+      token: 3i5588.eag0rh3c9jv0seiw # 在 API Server 节点执行 kubeadm token create 获取

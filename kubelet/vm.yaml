@@ -1,0 +1,44 @@
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 4
+memory: "10GiB"
+
+mounts:
+  - location: "~"
+    writable: true
+provision:
+  - mode: system
+    script: |
+      # 安装 Docker
+      sudo apt-get update
+      sudo apt-get install -y \
+      ca-certificates \
+      curl \
+      gnupg
+      sudo mkdir -m 0755 -p /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      echo \
+      "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+      "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+      sudo apt-get update
+      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      
+      # 安装 Kind
+      curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.18.0/kind-linux-arm64
+      chmod +x ./kind
+      sudo mv ./kind /usr/local/bin/kind
+      
+      # 安装 kubectl
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+      chmod +x kubectl
+      mv kubectl /usr/local/bin
+      apt install -y bash-completion
+      echo 'source <(kubectl completion bash)' >>~/.bashrc
+      
+      # 安装 Go
+      apt install -y golang

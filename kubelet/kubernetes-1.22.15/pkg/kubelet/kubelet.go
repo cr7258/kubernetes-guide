@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"k8s.io/kubernetes/mykubelet/mylib"
 	"math"
 	"net"
 	"net/http"
@@ -73,7 +74,6 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/config"
 	"k8s.io/kubernetes/pkg/kubelet/configmap"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
-	"k8s.io/kubernetes/pkg/kubelet/cri/remote"
 	"k8s.io/kubernetes/pkg/kubelet/cri/streaming"
 	"k8s.io/kubernetes/pkg/kubelet/events"
 	"k8s.io/kubernetes/pkg/kubelet/eviction"
@@ -311,18 +311,19 @@ func PreInitRuntimeService(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 
 	switch containerRuntime {
 	case kubetypes.DockerContainerRuntime:
-		klog.InfoS("Using dockershim is deprecated, please consider using a full-fledged CRI implementation")
-		if err := runDockershim(
-			kubeCfg,
-			kubeDeps,
-			crOptions,
-			runtimeCgroups,
-			remoteRuntimeEndpoint,
-			remoteImageEndpoint,
-			nonMasqueradeCIDR,
-		); err != nil {
-			return err
-		}
+		break
+		//klog.InfoS("Using dockershim is deprecated, please consider using a full-fledged CRI implementation")
+		//if err := runDockershim(
+		//	kubeCfg,
+		//	kubeDeps,
+		//	crOptions,
+		//	runtimeCgroups,
+		//	remoteRuntimeEndpoint,
+		//	remoteImageEndpoint,
+		//	nonMasqueradeCIDR,
+		//); err != nil {
+		//	return err
+		//}
 	case kubetypes.RemoteContainerRuntime:
 		// No-op.
 		break
@@ -331,12 +332,17 @@ func PreInitRuntimeService(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	}
 
 	var err error
-	if kubeDeps.RemoteRuntimeService, err = remote.NewRemoteRuntimeService(remoteRuntimeEndpoint, kubeCfg.RuntimeRequestTimeout.Duration); err != nil {
-		return err
-	}
-	if kubeDeps.RemoteImageService, err = remote.NewRemoteImageService(remoteImageEndpoint, kubeCfg.RuntimeRequestTimeout.Duration); err != nil {
-		return err
-	}
+	_ = err
+	// 这里需要和 CRI 交互，做个假的
+	kubeDeps.RemoteRuntimeService = &mylib.MyRuntimeService{}
+	kubeDeps.RemoteImageService = &mylib.MyImageService{}
+
+	//if kubeDeps.RemoteRuntimeService, err = remote.NewRemoteRuntimeService(remoteRuntimeEndpoint, kubeCfg.RuntimeRequestTimeout.Duration); err != nil {
+	//	return err
+	//}
+	//if kubeDeps.RemoteImageService, err = remote.NewRemoteImageService(remoteImageEndpoint, kubeCfg.RuntimeRequestTimeout.Duration); err != nil {
+	//	return err
+	//}
 
 	kubeDeps.useLegacyCadvisorStats = cadvisor.UsingLegacyCadvisorStats(containerRuntime, remoteRuntimeEndpoint)
 
@@ -1510,29 +1516,32 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 // Arguments:
 //
 // updateType - whether this is a create (first time) or an update, should
-//   only be used for metrics since this method must be reentrant
+//
+//	only be used for metrics since this method must be reentrant
+//
 // pod - the pod that is being set up
 // mirrorPod - the mirror pod known to the kubelet for this pod, if any
 // podStatus - the most recent pod status observed for this pod which can
-//   be used to determine the set of actions that should be taken during
-//   this loop of syncPod
+//
+//	be used to determine the set of actions that should be taken during
+//	this loop of syncPod
 //
 // The workflow is:
-// * If the pod is being created, record pod worker start latency
-// * Call generateAPIPodStatus to prepare an v1.PodStatus for the pod
-// * If the pod is being seen as running for the first time, record pod
-//   start latency
-// * Update the status of the pod in the status manager
-// * Stop the pod's containers if it should not be running due to soft
-//   admission
-// * Ensure any background tracking for a runnable pod is started
-// * Create a mirror pod if the pod is a static pod, and does not
-//   already have a mirror pod
-// * Create the data directories for the pod if they do not exist
-// * Wait for volumes to attach/mount
-// * Fetch the pull secrets for the pod
-// * Call the container runtime's SyncPod callback
-// * Update the traffic shaping for the pod's ingress and egress limits
+//   - If the pod is being created, record pod worker start latency
+//   - Call generateAPIPodStatus to prepare an v1.PodStatus for the pod
+//   - If the pod is being seen as running for the first time, record pod
+//     start latency
+//   - Update the status of the pod in the status manager
+//   - Stop the pod's containers if it should not be running due to soft
+//     admission
+//   - Ensure any background tracking for a runnable pod is started
+//   - Create a mirror pod if the pod is a static pod, and does not
+//     already have a mirror pod
+//   - Create the data directories for the pod if they do not exist
+//   - Wait for volumes to attach/mount
+//   - Fetch the pull secrets for the pod
+//   - Call the container runtime's SyncPod callback
+//   - Update the traffic shaping for the pod's ingress and egress limits
 //
 // If any step of this workflow errors, the error is returned, and is repeated
 // on the next syncPod call.
@@ -1915,8 +1924,8 @@ func (kl *Kubelet) syncTerminatedPod(ctx context.Context, pod *v1.Pod, podStatus
 }
 
 // Get pods which should be resynchronized. Currently, the following pod should be resynchronized:
-//   * pod whose work is ready.
-//   * internal modules that request sync of a pod.
+//   - pod whose work is ready.
+//   - internal modules that request sync of a pod.
 func (kl *Kubelet) getPodsToSync() []*v1.Pod {
 	allPods := kl.podManager.GetPods()
 	podUIDs := kl.workQueue.GetWork()
@@ -2081,13 +2090,13 @@ func (kl *Kubelet) syncLoop(updates <-chan kubetypes.PodUpdate, handler SyncHand
 // With that in mind, in truly no particular order, the different channels
 // are handled as follows:
 //
-// * configCh: dispatch the pods for the config change to the appropriate
-//             handler callback for the event type
-// * plegCh: update the runtime cache; sync pod
-// * syncCh: sync all pods waiting for sync
-// * housekeepingCh: trigger cleanup of pods
-// * health manager: sync pods that have failed or in which one or more
-//                     containers have failed health checks
+//   - configCh: dispatch the pods for the config change to the appropriate
+//     handler callback for the event type
+//   - plegCh: update the runtime cache; sync pod
+//   - syncCh: sync all pods waiting for sync
+//   - housekeepingCh: trigger cleanup of pods
+//   - health manager: sync pods that have failed or in which one or more
+//     containers have failed health checks
 func (kl *Kubelet) syncLoopIteration(configCh <-chan kubetypes.PodUpdate, handler SyncHandler,
 	syncCh <-chan time.Time, housekeepingCh <-chan time.Time, plegCh <-chan *pleg.PodLifecycleEvent) bool {
 	select {

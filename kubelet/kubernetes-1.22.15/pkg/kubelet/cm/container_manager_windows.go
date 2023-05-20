@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 /*
@@ -85,9 +86,9 @@ func (cm *containerManagerImpl) Start(node *v1.Node,
 	}
 
 	// Starts device manager.
-	if err := cm.deviceManager.Start(devicemanager.ActivePodsFunc(activePods), sourcesReady); err != nil {
-		return err
-	}
+	//if err := cm.deviceManager.Start(devicemanager.ActivePodsFunc(activePods), sourcesReady); err != nil {
+	//	return err
+	//}
 
 	return nil
 }
