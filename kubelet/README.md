@@ -158,3 +158,106 @@ myjtthink                    Ready    <none>          72m   v1.22.15
 ```
 
 ## 第二章 代码实现 Kubelet 注册(TLS Bootstrap)
+
+TLS 启动引导机制：https://kubernetes.io/zh-cn/docs/reference/access-authn-authz/kubelet-tls-bootstrapping/
+- 1.kubelet 先使用一个预先商定好的低权限 token 连接到 kube-apiserver。 
+- 2.向 kube-apiserver 申请证书，然后 kube-controller-manager 给 kubelet 动态签署证书（包括手动批准 CSR）。 
+- 3.后续 kubelet 都将通过动态签署的证书与 kube-apiserver 通信。
+
+执行以下命令用我们的代码创建 Token 以及 Secert。
+
+```bash
+cd kubernetes-1.22.15/mykubelet/test
+go run token.go
+
+# 输出
+secret 创建成功: bootstrap-token-o0phpg
+```
+
+这个 token 创建后权限来自于 `system:node-bootstrapper` ClusterRole 中，Node Bootstrap Token 属于 `system:bootstrappers:kubeadm:default-node-token` 组。当我们使用 `kubeadm init` 命令时，这个东西就会被自动初始化。
+文档说明：https://kubernetes.io/zh-cn/docs/reference/access-authn-authz/kubelet-tls-bootstrapping/#authorize-kubelet-to-create-csr
+
+```yaml
+root@lima-vm:~# kubectl get clusterrolebinding kubeadm:kubelet-bootstrap -o yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  creationTimestamp: "2023-05-20T02:54:32Z"
+  name: kubeadm:kubelet-bootstrap
+  resourceVersion: "234"
+  uid: 441f8e3c-6805-40f1-b251-67ef7d788465
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:node-bootstrapper
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:bootstrappers:kubeadm:default-node-token
+```
+
+kubelet 此时拥有受限制的凭据来创建和取回证书签名请求（CSR）。
+
+```yaml
+root@lima-vm:~# kubectl get clusterrole system:node-bootstrapper -n kube-system -o yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  creationTimestamp: "2023-05-20T02:54:30Z"
+  labels:
+    kubernetes.io/bootstrapping: rbac-defaults
+  name: system:node-bootstrapper
+  resourceVersion: "87"
+  uid: 13060586-e5a0-4356-8e88-dfa4ae8415b8
+rules:
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+```
+
+## 手工实现 CSR 请求和获取证书
+
+### 1 创建 CSR 文件
+
+```bash
+# CN 是用户名，O 是该用户归属的组
+openssl genrsa -out test.key 2048  
+openssl req -new -key test.key -out test.csr -subj "/O=system:nodes/CN=system:node:chengzw"
+```
+
+### 2 创建 CertificateSigningRequest 对象
+
+```yaml
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: testcsr
+spec:
+  # 把 CSR 文件的内容贴进去
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2VUQ0NBV0VDQVFBd05ERVZNQk1HQTFVRUNnd01jM2x6ZEdWdE9tNXZaR1Z6TVJzd0dRWURWUVFEREJKegplWE4wWlcwNmJtOWtaVHB6YUdWdWVXa3dnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCCkFRREJLRmRsMnp4KzJlbXRXWlBJYThTaXAwSkVHT3hUM0swK1I5M2JxdFJvTzNNS2lFazVwd0g5Z2V5Y2dqWXAKL0dSTnpQb2dVSnlWSU0veWJqRHF2a0Z2VXNIL2Mwc3ZJcVJ5Wk1GYXUxQ01ZMTU5cTNzV1dvQ0FlVEdCZFIzWQpkQXJZRnhsL1dNN3F6cmlaWVVrYzFudEs4QldtSjN4MjRWdkxDUHp5RVhjTjZLOTFCVm44bk05MWxncnJINFU3CndFWFVsS1VVeG1PU24vQzZnNUtlZ2I2cUlwdi8vaE1vUjhZMEowelVZenc5VkhiQXRMWkYwalF4Mi9QS0lDYVgKU1VDdk1UaGp0Q0FScTAxUk5sNWswaXdFZjh1NW94aEpqaDNMN2V0ZHRSdU96NzFrWktLUmg4bFhXWVp3YzRDNQphRGdjQmZjd2ZHQjdPVGhpNmhMN2JFVzNBZ01CQUFHZ0FEQU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFNT2lBCjZoNzlzODlGVytydUhvNEEvOTE3em1WZ0tPZXYremhnMDRaMzkwN0IwdmhzTUNvdTluckxEM0pyclVIMTYyOGQKd1JOclJuUWJObnNXVVhqNmtuUkJRYVQxSHZua2lkbEFDc0t6d2drQmFMOG80TEZxZUxRWTAyWVNDeVdvWVlCaQpGTm56OVVrbkQwcGcxU21DTEIrZ0pybGEwZ3IwTmloRk55dnN6YkY0a0lKamhFUnUvVVVxZWFKVnNDc2M5TDBkCmVsUVNmSkZ4OFRZVjQ5cWIremtQd3UySmlobEh6Ny96bTJKK0hnUVZtMkt0Ull1elNRN2FOWThDZElQa0kzZGQKVjRHd3g0Y3lIRU5wcmtvUXArVis4Vlp2QUZXL3I0aE9EWmswOXdBbXh6aFR3b2ora080RWtWdmozeEFZS0FFSQowdDBNem40WkMyNzdUbzFyaGc9PQotLS0tLUVORCBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0K
+  signerName: kubernetes.io/kube-apiserver-client
+  expirationSeconds: 3600
+  usages:
+    - client auth
+```
+
+```bash
+### 2 手动批复
+
+```bash
+kubectl certificate approve testcsr
+```
+
+### 3 获取证书内容
+
+```bash
+kubectl get csr  testcsr  -o jsonpath='{.status.certificate}'| base64 -d > testcsr .crt
+```
