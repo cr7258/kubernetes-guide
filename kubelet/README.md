@@ -1,6 +1,6 @@
 ## 创建 Linux 虚拟机
 
-在启动的虚拟机中会按照 Docker, Kind, Kubectl 等工具，我的电脑安装的是 ARM 架构的。
+在启动的虚拟机中会按照 Docker, Kind, Kubectl 等工具，我的电脑安装的是 ARM 架构的，如果是 X86 架构的电脑，需要修改 vm.yaml 文件中相关的安装命令。
 
 ```bash
 # 启动虚拟机
@@ -16,11 +16,12 @@ limactl shell vm
 kind create cluster --name kubelet-demo
 ```
 
-## 修改 Kubelet 代码
+## 第一章 Kubelet 快速魔改，本地启动
+### 修改 Kubelet 代码
 
 我们需要修改 Kubelet 中的 Cadvisor（容器监控），CRI 交互代码（ImageService, RuntimeService）以模拟假的节点。
 
-## 启动 Kubelet
+### 启动 Kubelet
 
 ```bash
 sh boot.sh
@@ -113,7 +114,7 @@ Events:
   Normal  NodeReady                5m28s                  kubelet          Node myjtthink status is now: NodeReady
 ```
 
-## 节点 Ready 状态的原理
+### 节点 Ready 状态的原理
 
 Kubernetes 节点发送的心跳帮助你的集群确定每个节点的可用性，并在检测到故障时采取行动。
 
@@ -129,7 +130,7 @@ kubelet 负责创建和更新节点的 .status，以及更新它们对应的 Lea
 ![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230520113851.png)
 
 
-## 模拟 Kubelet Lease 续期
+### 模拟 Kubelet Lease 续期
 
 当我们停止本地的 Kubelet 时，等待 40 秒后，因为 Lease 没有被及时更新，节点状态会变为 NotReady。
 
@@ -155,3 +156,5 @@ NAME                         STATUS   ROLES           AGE   VERSION
 kubelet-demo-control-plane   Ready    control-plane   96m   v1.26.3
 myjtthink                    Ready    <none>          72m   v1.22.15
 ```
+
+## 第二章 代码实现 Kubelet 注册(TLS Bootstrap)
