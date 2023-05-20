@@ -112,3 +112,46 @@ Events:
   Normal  RegisteredNode           5m35s                  node-controller  Node myjtthink event: Registered Node myjtthink in Controller
   Normal  NodeReady                5m28s                  kubelet          Node myjtthink status is now: NodeReady
 ```
+
+## 节点 Ready 状态的原理
+
+Kubernetes 节点发送的心跳帮助你的集群确定每个节点的可用性，并在检测到故障时采取行动。
+
+对于节点，有两种形式的心跳:
+- 更新节点的 .status
+- kube-node-lease 名字空间中的 Lease（租约）对象。 每个节点都有一个关联的 Lease 对象。
+与 Node 的 .status 更新相比，Lease 是一种轻量级资源。 使用 Lease 来表达心跳在大型集群中可以减少这些更新对性能的影响。
+
+kubelet 负责创建和更新节点的 .status，以及更新它们对应的 Lease。
+- 当节点状态发生变化时，或者在配置的时间间隔内没有更新事件时，kubelet 会更新 .status。 .status 更新的默认间隔为 5 分钟（比节点不可达事件的 40 秒默认超时时间长很多）。
+- kubelet 会创建并每 10 秒（默认更新间隔时间）更新 Lease 对象。 Lease 的更新独立于 Node 的 .status 更新而发生。 如果 Lease 的更新操作失败，kubelet 会采用指数回退机制，从 200 毫秒开始重试， 最长重试间隔为 7 秒钟。
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230520113851.png)
+
+
+## 模拟 Kubelet Lease 续期
+
+当我们停止本地的 Kubelet 时，等待 40 秒后，因为 Lease 没有被及时更新，节点状态会变为 NotReady。
+
+```bash
+root@lima-vm:~# kubectl get node
+NAME                         STATUS     ROLES           AGE   VERSION
+kubelet-demo-control-plane   Ready      control-plane   42m   v1.26.3
+myjtthink                    NotReady   <none>          19m   v1.22.15
+```
+
+启动程序模拟 Kubelet Lease 续期，并将节点状态改为 Ready。
+
+```bash
+cd kubernetes-1.22.15/mykubelet/test
+go run lease.go
+```
+
+查看节点状态，此时节点状态变为 Ready。
+
+```bash
+root@lima-vm:~# kubectl get node
+NAME                         STATUS   ROLES           AGE   VERSION
+kubelet-demo-control-plane   Ready    control-plane   96m   v1.26.3
+myjtthink                    Ready    <none>          72m   v1.22.15
+```
