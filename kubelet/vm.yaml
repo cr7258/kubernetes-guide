@@ -41,4 +41,6 @@ provision:
       echo 'source <(kubectl completion bash)' >>~/.bashrc
       
       # 安装 Go
-      apt install -y golang
+      wget https://go.dev/dl/go1.19.9.linux-arm64.tar.gz
+      tar -C /usr/local -xzf go1.19.9.linux-arm64.tar.gz
+      echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bash_profile

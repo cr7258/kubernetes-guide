@@ -223,9 +223,9 @@ rules:
   - watch
 ```
 
-## 手工实现 CSR 请求和获取证书
+### 手工实现 CSR 请求和获取证书
 
-### 1 创建 CSR 文件
+#### 1 创建 CSR 文件
 
 ```bash
 # CN 是用户名，O 是该用户归属的组
@@ -233,7 +233,7 @@ openssl genrsa -out test.key 2048
 openssl req -new -key test.key -out test.csr -subj "/O=system:nodes/CN=system:node:chengzw"
 ```
 
-### 2 创建 CertificateSigningRequest 对象
+#### 2 创建 CertificateSigningRequest 对象
 
 ```yaml
 apiVersion: certificates.k8s.io/v1
@@ -249,19 +249,19 @@ spec:
     - client auth
 ```
 
-### 3 手动批复
+#### 3 手动批复
 
 ```bash
 kubectl certificate approve testcsr
 ```
 
-### 4 获取证书内容
+#### 4 获取证书内容
 
 ```bash
 kubectl get csr  testcsr  -o jsonpath='{.status.certificate}'| base64 -d > testcsr .crt
 ```
 
-## 代码实现 CSR 请求
+### 代码实现 CSR 请求
 
 执行以下代码：会在 Kubernetes 集群中创建 CertificateSigningRequest 对象，并将 Private Key 保存到 kubelet.key 文件中。
 
@@ -313,4 +313,35 @@ status:
 ```bash
 cd kubernetes-1.22.15/mykubelet
 kubectl --kubeconfig kubelet.config get nodes
+```
+
+### 手撸 Kubelet 之创建节点
+
+进入 mykubelet-demo 目录启动程序。
+
+```bash
+root@lima-vm:/Users/I576375/Code/kubernetes-guide/kubelet/mykubelet-demo#  go run main.go 
+I0521 09:42:28.541023   79863 bootstrap.go:17] begin bootstrap 
+I0521 09:42:28.565105   79863 csr.go:106] waiting for csr is approved....
+
+# 手动批准 CSR
+kubectl certificate approve myk8s
+
+# 输出
+I0521 09:43:06.137346   79863 bootstrap.go:29] kubelet pem-files have been saved in .kube 
+I0521 09:43:06.138625   79863 csr.go:159] writing kubelet-config to  ./.kube/kubelet.config
+I0521 09:43:06.141958   79863 bootstrap.go:35] testing kubeclient
+I0521 09:43:06.200443   79863 bootstrap.go:44] v1.26.3
+I0521 09:43:06.216640   79863 node.go:35] create node myk8s success 
+I0521 09:43:06.225844   79863 node.go:50]   node status update success 
+# 开始持续续期
+I0521 09:43:06.225891   79863 node_lease.go:59] starting lease controller
+```
+
+查看节点状态。
+
+```bashroot@lima-vm:~# kubectl get node
+NAME                         STATUS     ROLES           AGE    VERSION
+kubelet-demo-control-plane   Ready      control-plane   30h    v1.26.3
+myk8s                        Ready      <none>          105s   v1.22.99
 ```
