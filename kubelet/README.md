@@ -260,3 +260,57 @@ kubectl certificate approve testcsr
 ```bash
 kubectl get csr  testcsr  -o jsonpath='{.status.certificate}'| base64 -d > testcsr .crt
 ```
+
+## 代码实现 CSR 请求
+
+执行以下代码：会在 Kubernetes 集群中创建 CertificateSigningRequest 对象，并将 Private Key 保存到 kubelet.key 文件中。
+
+```bash
+cd kubernetes-1.22.15/mykubelet/test
+go run create_csr.go
+```
+
+执行以下命令手动批准 CSR。
+
+```bash
+kubectl certificate approve testcsr
+```
+
+代码会从 Kubernetes 集群中获取证书内容，并将其保存到 kubelet.pem 文件中。
+
+```yaml
+root@lima-vm:~# kubectl get csr testcsr -o yaml
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  creationTimestamp: "2023-05-21T07:01:34Z"
+  name: testcsr
+  resourceVersion: "134931"
+  uid: 181f646b-e1e4-4d3e-9fde-0e6c8a738be0
+spec:
+  expirationSeconds: 36000
+  groups:
+    - system:masters
+    - system:authenticated
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlIdk1JR1hBZ0VBTURVeEZUQVRCZ05WQkFvVERITjVjM1JsYlRwdWIyUmxjekVjTUJvR0ExVUVBeE1UYzNsegpkR1Z0T201dlpHVTZZMmhsYm1kNmR6QlpNQk1HQnlxR1NNNDlBZ0VHQ0NxR1NNNDlBd0VIQTBJQUJPNitiZ3hUCkJmNjQ0TGxVVXNJMisrOVJZcWNCbW1JczhXWWlTOXhTN29yaVhEOC9WQmEwcVNZY3E1QkFkRk5VZDFGODQ1YWgKc2ZRNDhOZXU0cVlxZm02Z0FEQUtCZ2dxaGtqT1BRUURBZ05IQURCRUFpQTBxR2RXZ05vTGxkQy9Nd0JrVm1PcQpvaXR4ZURGTzRuNjRNekZZblRnRHNBSWdZMmZISk1WSy9tc3pmWHV0VU1qd1FnZ1RCYTJxbzV2SWRLYTJnb0FlCkt1OD0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tCg==
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+    - client auth
+  username: kubernetes-admin
+status:
+  certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNVRENDQVRpZ0F3SUJBZ0lSQUpNcmJQTXRPeTVVYTAvaUdDcStIUVF3RFFZSktvWklodmNOQVFFTEJRQXcKRlRFVE1CRUdBMVVFQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TXpBMU1qRXdOalUyTXpsYUZ3MHlNekExTWpFeApOalUyTXpsYU1EVXhGVEFUQmdOVkJBb1RESE41YzNSbGJUcHViMlJsY3pFY01Cb0dBMVVFQXhNVGMzbHpkR1Z0Ck9tNXZaR1U2WTJobGJtZDZkekJaTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEEwSUFCTzYrYmd4VEJmNjQKNExsVVVzSTIrKzlSWXFjQm1tSXM4V1lpUzl4UzdvcmlYRDgvVkJhMHFTWWNxNUJBZEZOVWQxRjg0NWFoc2ZRNAo4TmV1NHFZcWZtNmpSakJFTUJNR0ExVWRKUVFNTUFvR0NDc0dBUVVGQndNQ01Bd0dBMVVkRXdFQi93UUNNQUF3Ckh3WURWUjBqQkJnd0ZvQVUyTjFkeEhueWJhcVQxa2c2ZVVHNmc3QW9zd3N3RFFZSktvWklodmNOQVFFTEJRQUQKZ2dFQkFEYTYzbHdJOWRCbFMwT1A4bjJ0cnhnY1RzRXdzY0J0SlBBOGZyMTNwNDA2ZzVkTTZSRFFYRDl1VHU2NAoyQ2VndERKNDJQeTR2aWNML3RsYURXVHBKZVdRZkR6S0MwOVFIeldZc2lpRHdpY1FOQjBXekphdi83UC9nakJrCi9yWksyM3NDRlFjVlRGNnRTRlNMTlA2aHczRDBZNER4TlE2WmhQZE5pSnN1eWJDUzN0UjJmdWlXdjFOcExJbGgKYTJpeGFRUjhZTjR5QVU5dEJuWGkzK3NWeW9nMnZzRUVBN1h6R2J1alNyaU1FNmV3enAzT1NqYm9vZGRsdS9LSQpqTnJmVGRQNEhVa0dCUnQvYTc5VjFudUNtMmtxVTFTclVSMHNqcFl2emtOTnNUa3o1TXRLZnpvZ2ZEQlBFRHMxCmRlelIyNmlwVlhDVDhyTDhmdWdZLzZjSzVBRT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  conditions:
+    - lastTransitionTime: "2023-05-21T07:01:39Z"
+      lastUpdateTime: "2023-05-21T07:01:39Z"
+      message: This CSR was approved by kubectl certificate approve.
+      reason: KubectlApprove
+      status: "True"
+      type: Approved
+```
+
+验证签发证书的有效性，使用 kubectl --kubeconfig 指定 kubeconfig 文件，使用签发证书的用户身份访问集群。
+
+```bash
+cd kubernetes-1.22.15/mykubelet
+kubectl --kubeconfig kubelet.config get nodes
+```
