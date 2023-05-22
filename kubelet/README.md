@@ -345,3 +345,7 @@ NAME                         STATUS     ROLES           AGE    VERSION
 kubelet-demo-control-plane   Ready      control-plane   30h    v1.26.3
 myk8s                        Ready      <none>          105s   v1.22.99
 ```
+
+## 第三章 Pod 状态和监听（主模块源码学习）
+
+PLEG：全称 Pod Lifecycle Event Generator（Pod 生命周期事件生成器），它会定期检查节点上 Pod 的运行状态，把 Pod 的状态变化封装为特有的 Event（PodLifeCycleEvent），从而触发 kubelet 的主同步机制。
