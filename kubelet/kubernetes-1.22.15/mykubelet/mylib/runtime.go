@@ -217,9 +217,34 @@ func (c ContainerRuntime) KillPod(pod *v1.Pod, runningPod kubecontainer.Pod, gra
 	panic("implement me")
 }
 
-func (c ContainerRuntime) GetPodStatus(uid types.UID, name, namespace string) (*kubecontainer.PodStatus, error) {
+func (c *ContainerRuntime) GetPodStatus(uid types.UID, name, namespace string) (*kubecontainer.PodStatus, error) {
+
+	podId := findPodIDByUID(uid)
+	if podId == "" {
+		return nil, fmt.Errorf("找不到POD：id=%s", string(uid))
+	}
+	containerIds := findContainerIdsByPodUID(uid)
+	containerStatus := []*kubecontainer.Status{}
+	for _, cid := range containerIds {
+		containerStatus = append(containerStatus, &kubecontainer.Status{
+			ID:    kubecontainer.ContainerID{Type: "docker", ID: cid},
+			State: MockContainer_CRI_Status[cid],
+		})
+	}
 	//TODO implement me
-	panic("implement me")
+	return &kubecontainer.PodStatus{
+		ID:        uid,
+		Name:      name,
+		Namespace: namespace,
+		SandboxStatuses: []*runtimeapi.PodSandboxStatus{
+			{
+				Id:    podId,
+				State: MockPod_CRI_Status[podId],
+			},
+		},
+		ContainerStatuses: containerStatus,
+	}, nil
+
 }
 
 func (c ContainerRuntime) GetContainerLogs(ctx context.Context, pod *v1.Pod, containerID kubecontainer.ContainerID, logOptions *v1.PodLogOptions, stdout, stderr io.Writer) (err error) {

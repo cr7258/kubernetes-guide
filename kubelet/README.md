@@ -349,3 +349,127 @@ myk8s                        Ready      <none>          105s   v1.22.99
 ## 第三章 Pod 状态和监听（主模块源码学习）
 
 PLEG：全称 Pod Lifecycle Event Generator（Pod 生命周期事件生成器），它会定期检查节点上 Pod 的运行状态，把 Pod 的状态变化封装为特有的 Event（PodLifeCycleEvent），从而触发 kubelet 的主同步机制。
+
+主要参考源码中的 GetPods 方法，相关代码在 kubernetes-1.22.15/mykubelet/mylib 目录下的 runtime.go, runtime_util.go, runtimeservice.go, runtimeservice_mock.go 文件中。
+
+```go
+func (m *kubeGenericRuntimeManager) GetPods(all bool) ([]*kubecontainer.Pod, error) {
+	pods := make(map[kubetypes.UID]*kubecontainer.Pod)
+	sandboxes, err := m.getKubeletSandboxes(all)
+	if err != nil {
+		return nil, err
+	}
+	for i := range sandboxes {
+		s := sandboxes[i]
+		if s.Metadata == nil {
+			klog.V(4).InfoS("Sandbox does not have metadata", "sandbox", s)
+			continue
+		}
+		podUID := kubetypes.UID(s.Metadata.Uid)
+		if _, ok := pods[podUID]; !ok {
+			pods[podUID] = &kubecontainer.Pod{
+				ID:        podUID,
+				Name:      s.Metadata.Name,
+				Namespace: s.Metadata.Namespace,
+			}
+		}
+		p := pods[podUID]
+		converted, err := m.sandboxToKubeContainer(s)
+		if err != nil {
+			klog.V(4).InfoS("Convert sandbox of pod failed", "runtimeName", m.runtimeName, "sandbox", s, "podUID", podUID, "err", err)
+			continue
+		}
+		p.Sandboxes = append(p.Sandboxes, converted)
+	}
+
+	containers, err := m.getKubeletContainers(all)
+	if err != nil {
+		return nil, err
+	}
+	for i := range containers {
+		c := containers[i]
+		if c.Metadata == nil {
+			klog.V(4).InfoS("Container does not have metadata", "container", c)
+			continue
+		}
+
+		labelledInfo := getContainerInfoFromLabels(c.Labels)
+		pod, found := pods[labelledInfo.PodUID]
+		if !found {
+			pod = &kubecontainer.Pod{
+				ID:        labelledInfo.PodUID,
+				Name:      labelledInfo.PodName,
+				Namespace: labelledInfo.PodNamespace,
+			}
+			pods[labelledInfo.PodUID] = pod
+		}
+
+		converted, err := m.toKubeContainer(c)
+		if err != nil {
+			klog.V(4).InfoS("Convert container of pod failed", "runtimeName", m.runtimeName, "container", c, "podUID", labelledInfo.PodUID, "err", err)
+			continue
+		}
+
+		pod.Containers = append(pod.Containers, converted)
+	}
+
+	// Convert map to list.
+	var result []*kubecontainer.Pod
+	for _, pod := range pods {
+		result = append(result, pod)
+	}
+
+	return result, nil
+}
+```
+
+### 手动调用 PLEG
+
+PLEG 通过 relist 函数获取 Pod 列表并存到本地缓存，然后定时再取，每次和之前的缓存比对，从而得知哪些 Pod 发生了变化。
+
+```go
+rs := &mylib.MyRuntimeService{} // CRI 模拟实现
+// 模拟创建 kubelet 封装的 runtime
+var cr kubecontainer.Runtime = mylib.NewContianerRuntime(rs, "containerd")
+cache := kubecontainer.NewCache()
+p := pleg.NewGenericPLEG(cr, 1000, time.Second*1, cache, clock.RealClock{})
+go func() {
+    for {
+        select {
+        case v := <-p.Watch():
+            if v.Type != pleg.ContainerStarted {
+                fmt.Println(v)
+                break
+            }
+        }
+    }
+}()
+p.Start()
+
+// 启动 HTTP 服务，当收到请求时，将 Pod 状态改为 NotReady
+http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+    mylib.MockData_Pods[0].State = runtimeapi.PodSandboxState_SANDBOX_NOTREADY
+    writer.Write([]byte("Pod 状态变更"))
+})
+
+http.ListenAndServe(":8080", nil)
+```
+
+启动程序。
+
+```bash
+cd kubernetes-1.22.15/mykubelet/
+go run mytest/myclient/main.go
+```
+
+浏览器输入 http://localhost:8080，得到以下内容。
+
+```bash
+Pod 状态变更
+```
+
+查看程序，输出以下内容。
+
+```bash
+&{ef14133d-c5af-482d-a514-e6fc98093553 ContainerDied 926f1b5a1d33a}
+```
