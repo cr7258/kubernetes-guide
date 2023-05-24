@@ -1,9 +1,8 @@
 # Kubernetes 教程
-- [authentication：Kubernetes 认证](./authentication)
+- authentication: [Kubernetes 认证](./authentication)
 - finalizers：[Kubernetes 对象删除原理](./finalizers)
 - envoywasm：[微服务实战之 wasm 扩展 envoy (go 版本)](./envoywasm)
 - k8sapi-lowcode：[低代码版手撸 k8s 可视化系统（后端）](./k8sapi-lowcode)
-- k8sapi-lowcode-front：[低代码版手撸 k8s 可视化系统（前端）](./k8sapi-lowcode-front)
 - aggregated-apiserver：[聚合 API](./aggregated-apiserver)
 - webhook：[准入控制器](./webhook)
 - kubebuilder：[Operator 和 Kubebuilder 入门](./kubebuilder)
