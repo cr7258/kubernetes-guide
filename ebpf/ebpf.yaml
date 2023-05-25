@@ -1,0 +1,38 @@
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 4
+memory: "10GiB"
+
+mounts:
+  - location: "~"
+    writable: true
+provision:
+  - mode: system
+    script: |
+      # 安装 Docker
+      sudo apt-get update
+      sudo apt-get install -y \
+      ca-certificates \
+      curl \
+      gnupg
+      sudo mkdir -m 0755 -p /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      echo \
+      "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+      "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+      sudo apt-get update
+      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      
+      # 安装 Go
+      wget https://go.dev/dl/go1.19.9.linux-arm64.tar.gz
+      tar -C /usr/local -xzf go1.19.9.linux-arm64.tar.gz
+      echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bash_profile
+
+      # 安装 eunomia-bpf
+      wget https://aka.pw/bpf-ecli -O ecli && chmod +x ./ecli
+      mv ./ecli /usr/local/bin

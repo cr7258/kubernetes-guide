@@ -1,0 +1,39 @@
+{
+  "bpf_object": "eJytVc1rE0EUf0n6kX6k1o9DCQWXgtBA2bT1oFAtaWyqhSCh6aUqbLe723TpJl13pzalgj3ovSCCN6PePQk99uKf4MGDhxx6KOihgqC3OG/3JbuOSXvxwcvM7zfva96bJM9y+YVoJAJNicAvCFAgN7uDfYY+E9zyBd8NcT3kTrrcD1rydwNPRzjeKksF3C/OS9f2kqctvmQ4Bu51ad3ZS560+GxhQcI9c8zSXrLu8TtckTx66+fu5Xb1RqNxGAUYRT7m81hHD9ZBNb4K1T6/rVpStjifvlvIe0kwARaBBWCRWCAWz+XNtwiMkN9X0tMgVDToEyRi/uoptSfS5dcb6fP5wWjg24/1ffD3cfT96O+HuinGEcXAfRxaY/BuGMcAXBNcP/2dC75QHMoJdX+94PWLgqDtSYgfIB7jgcaqYFYYbKgV3TIUZgOz0+6uq6mW5eJGMSrMcJQdx2QGpF1HS5fNillWLXnNXpc1kGxTVxh+SrclTiklgynatuNwP8U7K5n6eEqanZWuT8+AZ2I7POXm+FjngTyqjE1gzBT3cAy27VSkyRnwwnmf66bFqwJtQ3VAUeaWluZWlOLig5yyvFLIKQrkF+/k7hdzIDtbuspUsEzNqLiGN2OJ7n+F1OK6Txz2+jIEA8DeDRPXQ1yaaxabfss/Q/wYH8g9gNXQeYqf24SbUhXsDwi/R5yHcyUGsX+4q1wvhfha6H4XvRsEd0F56vHBlzpB6+dWDl+/h/xQJ0IY+5MRcEHAqwK2Bbwv4AMBDw6BzIwq40M0LDm7vCAjCE0/eLOyZT0pK6quO65ZOvMFNx+C7DKHqWt83S17Kz2UZi7xBaH9lDwF/0EeUn9FeUcDeinwkTYYtUfgM9BeugR84xz/msDHBbxJ/lGBr3fIJ+Ii+Ys9OKY1IfDi/Z8TNy3wP2gd7eDfXHfaxEQZJvJYOBTrd7ni721G9CdDifAg+L/Bzf4N0zrQIf9PamgNzs7f2yH/JBnaofx9bfKnuMbyjS0IvoJ+XvIX5yrWqrWxQXlNA62G/KKh/M3/1j+ni9sL",
+  "bpf_object_size": 2168,
+  "meta": {
+    "bpf_skel": {
+      "data_sections": [
+        {
+          "name": ".rodata",
+          "variables": [
+            {
+              "name": "pid_filter",
+              "type": "pid_t"
+            }
+          ]
+        }
+      ],
+      "maps": [
+        {
+          "ident": "rodata",
+          "mmaped": true,
+          "name": "minimal_.rodata"
+        },
+        {
+          "ident": "rodata_str1_1",
+          "name": ".rodata.str1.1"
+        }
+      ],
+      "obj_name": "minimal_bpf",
+      "progs": [
+        {
+          "attach": "tp/syscalls/sys_enter_write",
+          "link": true,
+          "name": "handle_tp"
+        }
+      ]
+    },
+    "eunomia_version": "0.3.0"
+  }
+}
