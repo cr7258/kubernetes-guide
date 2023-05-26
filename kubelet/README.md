@@ -459,7 +459,7 @@ http.ListenAndServe(":8080", nil)
 
 ```bash
 cd kubernetes-1.22.15/mykubelet/
-go run mytest/myclient/main.go
+go run mytest/myclient/pleg.go
 ```
 
 浏览器输入 http://localhost:8080，得到以下内容。
@@ -472,4 +472,87 @@ Pod 状态变更
 
 ```bash
 &{ef14133d-c5af-482d-a514-e6fc98093553 ContainerDied 926f1b5a1d33a}
+```
+
+### SyncLoop
+
+syncLoop 是处理变更的主循环，监听来自 file, http, API Server 的事件更新。syncLoopIteration 从各个 channel 中读取数据，并将 Pod 分派给给定的处理 handler。
+- configCh: 监听 Pod 配置的变更
+- plegCh: 监听来自 PLEG 的事件
+- syncCh: 监听处理等待同步的 Pod
+- housekeepingCh: 监听处理需要清理的 Pod
+- health manager（livenessManager, readinessManager, startupManager）: 监听探针事件
+
+statusManager 的主要功能是将 Pod 的状态信息同步到 API Server，它并不会主动监控 Pod 的状态，而是提供接口供其他 manager（例如 probeManager）进行调用，同时 syncLoop 主循环也会调用到它。Manager 接口包含以下几个主要方法：
+- SetPodStatus：Pod 状态发生变化，会调用新状态更新到 API Server。
+- SetContainerReadiness：Pod 中的容器健康状态发生变化，会调用修改 Pod 的监健康状态。
+- TerminatePod：删除 Pod 的时候调用，把 Pod 中所有的容器设置为 terminated 状态。
+- RemoveOrphanedStatuses：删除 Orphan Pod。
+
+
+StatusManager 初始化（pkg/kubelet/pod/pod_manager.go，122 行）：
+- kubeClient：用于和 API Server 交互
+- podManager：Pod 内存形式的管理器，用于管理 Kubelet 对 Pod 的访问
+- podStatuses：用于存储 Pod 的状态
+- podStatusChannel：当其他组件调用 statusManager 更新 Pod 状态时，会调用这个 channel
+- apiStatusVersions：维护最新的 Pod status 版本号，每次更新会加 1
+- podDeletionSafety：删除 Pod 的接口
+
+```go
+func NewManager(kubeClient clientset.Interface, podManager kubepod.Manager, podDeletionSafety PodDeletionSafetyProvider) Manager {
+	return &manager{
+		kubeClient:        kubeClient,
+		podManager:        podManager,
+		podStatuses:       make(map[types.UID]versionedPodStatus),
+		podStatusChannel:  make(chan podStatusSyncRequest, 1000), // Buffer up to 1000 statuses
+		apiStatusVersions: make(map[kubetypes.MirrorPodUID]uint64),
+		podDeletionSafety: podDeletionSafety,
+	}
+}
+```
+
+SyncHandler（pkg/kubelet/kubelet.go，195 行）是一个由 Kubelet 实现的接口，用于处理 Pod 的添加，更新，删除等事件。
+
+```go
+type SyncHandler interface {
+	HandlePodAdditions(pods []*v1.Pod)
+	HandlePodUpdates(pods []*v1.Pod)
+	HandlePodRemoves(pods []*v1.Pod)
+	HandlePodReconcile(pods []*v1.Pod)
+	HandlePodSyncs(pods []*v1.Pod)
+	HandlePodCleanups() error
+}
+```
+
+初始化 PodConfig（pkg/kubelet/kubelet.go，275 行），这里面涉及到几个参数：
+- Recorder：事件记录器（如 Pod 生命周期事件，各种错误事件）
+- EventBroadcaster：事件分发器，分发给 watch 它的函数，用 channel 实现
+
+```go
+cfg := config.NewPodConfig(config.PodConfigNotificationIncremental, kubeDeps.Recorder)
+```
+
+### 手工调用 PodManager，创建一个假的静态 Pod
+
+参考代码 pkg/kubelet/kubelet.go，623 行。
+
+```go
+// podManager is also responsible for keeping secretManager and configMapManager contents up-to-date.
+mirrorPodClient := kubepod.NewBasicMirrorClient(klet.kubeClient, string(nodeName), nodeLister)
+klet.podManager = kubepod.NewBasicPodManager(mirrorPodClient, secretManager, configMapManager)
+```
+
+运行程序调用 PodManager 创建 Pod。
+
+```bash
+cd kubernetes-1.22.15/mykubelet/
+go run mytest/myclient/pod_manager.go
+```
+
+查看创建的静态 Pod。删除可以使用 kubectl delete --force 命令强制删除。
+
+```bash
+> kubectl get pod
+NAME                      READY   STATUS    RESTARTS   AGE
+kube-mystatic-myjtthink   0/1     Pending   0          2s
 ```
