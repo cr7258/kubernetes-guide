@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: nginx-kubelet
+  name: nginx-kubelet
+spec:
+  containers:
+    - image: nginx
+      name: nginx-kubelet
+  nodeName: kubelet-demo-control-plane

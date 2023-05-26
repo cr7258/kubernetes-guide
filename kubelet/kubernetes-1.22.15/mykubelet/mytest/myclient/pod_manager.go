@@ -1,26 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/informers"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"k8s.io/kubernetes/pkg/kubelet/configmap"
-	kubepod "k8s.io/kubernetes/pkg/kubelet/pod"
-	"k8s.io/kubernetes/pkg/kubelet/secret"
+	"k8s.io/kubernetes/mykubelet/mycore"
+	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 	"log"
-	"reflect"
+	"net/http"
+	"sort"
 )
-
-/**
-* @description 手工调用 PodManager，创建一个假的静态 Pod
-* @author chengzw
-* @since 2023/5/25
-* @link
- */
 
 func main() {
 	restConfig, err := clientcmd.BuildConfigFromFlags("", homedir.HomeDir()+"/.kube/config")
@@ -32,34 +23,42 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	ch := make(chan struct{})
-	fact := informers.NewSharedInformerFactory(client, 0)
-	fact.Core().V1().Nodes().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{})
-	fact.Start(ch)
+	nodeName := "kubelet-demo-control-plane"
+	pc := mycore.NewPodCache(client, nodeName)
 
-	secretManager := secret.NewSimpleSecretManager(client)
-	configMapManager := configmap.NewSimpleConfigMapManager(client)
-
-	// 等待 Node 缓存同步完成
-	if waitMap := fact.WaitForCacheSync(ch); waitMap[reflect.TypeOf(&v1.Node{})] {
-		nodeLister := fact.Core().V1().Nodes().Lister()
-		mirrorPodClient := kubepod.NewBasicMirrorClient(client, "myjtthink", nodeLister)
-		podManager := kubepod.NewBasicPodManager(mirrorPodClient, secretManager, configMapManager)
-
-		pod := &v1.Pod{}
-		pod.Name = "kube-mystatic-myjtthink"
-		pod.Namespace = "default"
-		pod.Spec.NodeName = "myjtthink"
-		pod.Spec.Containers = []v1.Container{
-			{
-				Name:  "mystatic-container",
-				Image: "static:v1",
-			},
+	go func() {
+		fmt.Println("开启 HTTP 服务")
+		// 用于显示当前缓存有多少 Pod
+		http.HandleFunc("/pods", func(writer http.ResponseWriter, request *http.Request) {
+			pods := []string{}
+			for _, pod := range pc.PodManager.GetPods() {
+				pods = append(pods, pod.Namespace+"/"+pod.Name)
+			}
+			sort.Strings(pods)
+			b, _ := json.Marshal(pods)
+			writer.Header().Add("Content-Type", "application/json")
+			writer.Write(b)
+		})
+		http.ListenAndServe(":8080", nil)
+	}()
+	fmt.Println("开始监听")
+	for item := range pc.PodConfig.Updates() {
+		pods := item.Pods
+		switch item.Op {
+		case kubetypes.ADD:
+			for _, pod := range pods {
+				pc.PodManager.AddPod(pod)
+			}
+			break
+		case kubetypes.UPDATE:
+			for _, pod := range pods {
+				pc.PodManager.UpdatePod(pod)
+			}
+			break
+		case kubetypes.DELETE:
+			for _, pod := range pods {
+				pc.PodManager.DeletePod(pod)
+			}
 		}
-		err := podManager.CreateMirrorPod(pod)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		fmt.Println("静态 Pod 创建成功")
 	}
 }

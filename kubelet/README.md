@@ -1,4 +1,7 @@
-## 创建 Linux 虚拟机
+[TOC]
+
+## 环境准备
+### 创建 Linux 虚拟机
 
 在启动的虚拟机中会按照 Docker, Kind, Kubectl 等工具，我的电脑安装的是 ARM 架构的，如果是 X86 架构的电脑，需要修改 vm.yaml 文件中相关的安装命令。
 
@@ -10,7 +13,7 @@ limactl start vm.yaml
 limactl shell vm 
 ```
 
-## 使用 Kind 创建 Kubernetes 集群
+### 使用 Kind 创建 Kubernetes 集群
 
 ```bash
 kind create cluster --name kubelet-demo
@@ -490,7 +493,7 @@ statusManager 的主要功能是将 Pod 的状态信息同步到 API Server，�
 - RemoveOrphanedStatuses：删除 Orphan Pod。
 
 
-StatusManager 初始化（pkg/kubelet/pod/pod_manager.go，122 行）：
+StatusManager 初始化（pkg/kubelet/status/status_manager.go，122 行）：
 - kubeClient：用于和 API Server 交互
 - podManager：Pod 内存形式的管理器，用于管理 Kubelet 对 Pod 的访问
 - podStatuses：用于存储 Pod 的状态
@@ -546,7 +549,7 @@ klet.podManager = kubepod.NewBasicPodManager(mirrorPodClient, secretManager, con
 
 ```bash
 cd kubernetes-1.22.15/mykubelet/
-go run mytest/myclient/pod_manager.go
+go run mytest/myclient/static_pod.go
 ```
 
 查看创建的静态 Pod。删除可以使用 kubectl delete --force 命令强制删除。
@@ -556,3 +559,34 @@ go run mytest/myclient/pod_manager.go
 NAME                      READY   STATUS    RESTARTS   AGE
 kube-mystatic-myjtthink   0/1     Pending   0          2s
 ```
+
+### 监听 Pod 加入缓存
+
+```bash
+cd kubernetes-1.22.15/mykubelet/
+go run mytest/myclient/pod_manager.go
+```
+
+浏览器输入 http://localhost:8080/pods ，可以看到指定节点当前的 Pod 列表。
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230526161901.png)
+
+创建一个新的 Pod。
+
+```bash
+kubectl apply -f yaml/nginx.yaml
+```
+
+刷新浏览器，可以看到 Pod 列表中出现了新的 Pod。
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230526162036.png)
+
+删除该 Pod。
+
+```bash
+kubectl delete -f yaml/nginx.yaml
+```
+
+刷新浏览器，Pod 已经从列表中消失。
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230526161901.png)
