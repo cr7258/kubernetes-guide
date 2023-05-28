@@ -590,3 +590,62 @@ kubectl delete -f yaml/nginx.yaml
 刷新浏览器，Pod 已经从列表中消失。
 
 ![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230526161901.png)
+
+### PodWorkers 
+
+PodWorkers 的作用如下：
+ - 1.每创建一个新的 Pod，都会为其创建一个专用的 PodWorkers。
+ - 2.每个 PodWorkers 其实就一个协程，它会创建一个类型为 UpdatePodOptions（Pod 更新事件）的 channel。
+ - 3.获得 Pod 更新事件后调用 PodWorkers 中的 syncPodFn（就是在 kubelet 里面有个 syncPod 函数）进行具体的同步工作。注意：SyncPod 就包含了将 Pod 的最新状态上报给 API Server，创建 Pod 的专属目录等等。
+
+初始化代码在 pkg/kubelet/kubelet.go，656 行。
+
+```go
+klet.podWorkers = newPodWorkers(
+    klet.syncPod,
+    klet.syncTerminatingPod,
+    klet.syncTerminatedPod,
+
+    kubeDeps.Recorder,
+    klet.workQueue,
+    klet.resyncInterval,
+    backOffPeriod,
+    klet.podCache,
+)
+```
+
+PodWorkers 中的 managePodLoop 方法的基本作用是监听 podUpdates 更新事件，从而触发 PodSyncFn（pkg/kubelet/pod_workers.go，936 行）。
+managePodLoop 中有个关键的阻塞函数（pkg/kubelet/pod_workers.go，910 行），根据 uid 获取 Pod 的最新状态，这里面必须等待 podCache 有针对这个 Pod 的状态数据，才会继续往下执行。
+
+```go
+status, err = p.podCache.GetNewerThan(pod.UID, lastSyncTime)
+```
+
+手动调用 PodWorkers。
+
+```bash
+cd kubernetes-1.22.15/mykubelet/
+go run mytest/myclient/pod_worker.go
+```
+
+创建一个新的 Pod。
+
+```bash
+kubectl apply -f yaml/nginx.yaml
+```
+
+查看 Pod 的 UID。
+
+```bash
+kubectl get pod nginx-kubelet -o yaml -o jsonpath='{.metadata.uid}'
+
+# 返回结果
+59367ef6-1bb2-4057-ba10-e71328a2c94e
+```
+
+打开浏览器输入 http://localhost:8080/setcache?id=59367ef6-1bb2-4057-ba10-e71328a2c94e 设置 PodCache，在控制台输出可以看到由于 GetNewerThan 根据 Pod uid 获取到 Pod 状态信息，因此执行了 PodSyncFn。
+
+```bash
+临时的syncpod函数
+要处理的 Pod 名称是 nginx-kubelet
+```
