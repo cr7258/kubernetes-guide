@@ -1,0 +1,46 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: mycsi-sc
+provisioner: mycsi.jtthink.com
+parameters:
+  server: 172.19.0.8
+  share: /home/nfsdata
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mycsi-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: mycsi-sc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mycsi-nginx
+spec:
+  selector:
+    matchLabels:
+      app: mycsi-nginx
+  template:
+    metadata:
+        labels:
+            app: mycsi-nginx
+    spec:
+      containers:
+        - name: mycsi-nginx
+          image: nginx:1.19.6
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: mycsi-pvc
+              mountPath: /tmp/data
+      volumes:
+        - name: mycsi-pvc
+          persistentVolumeClaim:
+            claimName: mycsi-pvc

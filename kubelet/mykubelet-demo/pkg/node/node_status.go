@@ -16,7 +16,6 @@ func setNodeStatus(node *v1.Node) {
 	node.Status.Capacity = nodeCapacity()
 }
 
-// TODO 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 // 返回节点 端口 函数
 func nodeDaemonEndpoints(port int32) v1.NodeDaemonEndpoints {
 	return v1.NodeDaemonEndpoints{
@@ -36,7 +35,6 @@ func nodeAddresses() []v1.NodeAddress {
 	}
 }
 
-// TODO 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 // 节点状态 集合
 func nodeConditions() []v1.NodeCondition {
 	// TODO: Make this configurable

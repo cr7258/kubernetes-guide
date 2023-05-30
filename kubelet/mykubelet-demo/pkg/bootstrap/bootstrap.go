@@ -7,7 +7,6 @@ import (
 	"mykubelet/pkg/util"
 )
 
-// TODO 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 // 分几步   证书获取 。client 创建 node节点创建
 func BootStrap(token, nodeName, masterUrl string) {
 	if !util.NeedRequestCSR() {
@@ -21,7 +20,7 @@ func BootStrap(token, nodeName, masterUrl string) {
 		klog.Fatalln(err)
 	}
 	//等待批复 ，超时时间
-	// TODO 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
+
 	err = lib.WaitForCSRApprove(csrObj, lib.CSR_WAITING_TIMEOUT, bootClient)
 	if err != nil {
 		klog.Fatalln(err)

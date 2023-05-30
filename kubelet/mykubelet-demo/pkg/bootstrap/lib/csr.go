@@ -22,7 +22,6 @@ import (
 	"time"
 )
 
-// TODO 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 // 把私钥 保存为 文件
 func savePrivateKeyToFile(key *ecdsa.PrivateKey) error {
 	b, err := x509.MarshalECPrivateKey(key)
@@ -43,7 +42,6 @@ func savePrivateKeyToFile(key *ecdsa.PrivateKey) error {
 	return nil
 }
 
-// TODO 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 // 生成 csr证书请求文件 用于 reqeust字段的填充
 func GenCSRPEM(nodeName string) ([]byte, error) {
 	cr := &x509.CertificateRequest{
@@ -70,7 +68,6 @@ func GenCSRPEM(nodeName string) ([]byte, error) {
 	return csrPEM, nil
 }
 
-// TODO 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 // 创建 certificates.k8s.io/v1   CertificateSigningRequest 对象
 func CreateCSRCert(client *kubernetes.Clientset, nodeName string) (*certificatesv1.CertificateSigningRequest, error) {
 	csrpem, err := GenCSRPEM(nodeName)
@@ -113,7 +110,6 @@ func WaitForCSRApprove(csrObj *certificatesv1.CertificateSigningRequest, timeout
 	return err
 }
 
-// TODO 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 // 生成  kubeconfig 文件， 生成到.kube/kubelet.config
 func GenKubeletConfig(masterUrl string) error {
 	contextName := "default-context"

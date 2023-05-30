@@ -14,3 +14,4 @@
 - k8s-apiserver: [k8s apiserver 源码级学习和魔改](./k8s-apiserver)
 - kubelet: [kubelet 源码级学习和魔改](./kubelet)
 - ebpf: [eBPF 实战入门之环境篇](./ebpf)
+- csi: [K8S CSI 存储插件基础入门篇](./csi)
