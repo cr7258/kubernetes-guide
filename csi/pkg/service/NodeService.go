@@ -24,7 +24,7 @@ func (n *NodeService) NodeUnstageVolume(ctx context.Context, request *csi.NodeUn
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-const FixedSourceDir = "172.19.0.8:/home/nfsdata"
+const FixedSourceDir = "172.18.0.1:/home/nfsdata"
 
 func (n *NodeService) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	opts := request.GetVolumeCapability().GetMount().GetMountFlags()

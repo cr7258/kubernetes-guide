@@ -2,6 +2,7 @@
 
 ## 部署 NFS 服务器
 
+方式一：使用 Docker 启动
 ```bash
 mkdir -p /tmp/nfsdata
 docker run -d --name nfsserver --network kind \
@@ -12,12 +13,22 @@ docker run -d --name nfsserver --network kind \
 erichough/nfs-server
 ```
 
+方式二：手动安装
+```bash
+sudo apt install nfs-kernel-server
+
+mkdir -p /home/nfsdata
+echo /home/nfsdata *(rw,async,insecure,no_root_squash,no_subtree_check) >> /etc/exports
+
+systemctl start nfs-kernel-server
+```
+
 验证是否可以挂载 NFS。
 
 ```bash
 # 查看容器 IP
 docker inspect nfsserver | grep IPAddress
-mount -t nfs 172.19.0.8:/home/nfsdata ~/tmp/testdata
+mount -t nfs 172.18.0.1:/home/nfsdata ~/tmp/testdata
 ```
 
 ## 创建 Kubernetes 集群

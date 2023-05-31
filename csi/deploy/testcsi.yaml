@@ -4,7 +4,7 @@ metadata:
   name: mycsi-sc
 provisioner: mycsi.jtthink.com
 parameters:
-  server: 172.19.0.8
+  server: 172.18.0.1
   share: /home/nfsdata
 ---
 apiVersion: v1

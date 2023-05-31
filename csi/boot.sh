@@ -1,4 +1,4 @@
 set GOOS=linux
-set GOARCH=arm64
+set GOARCH=amd64
 
 go build -o ./bin/mycsi main.go
