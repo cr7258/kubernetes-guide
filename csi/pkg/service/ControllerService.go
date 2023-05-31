@@ -7,7 +7,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/mount"
+	"k8s.io/mount-utils"
+
 	"os"
 	"strings"
 )
@@ -127,7 +128,7 @@ func (cs *ControllerService) CreateVolume(ctx context.Context, req *csi.CreateVo
 	klog.Info("创建volume")
 	klog.Info("名称是", req.GetName())
 	klog.Info("参数是:", req.GetParameters())
-	basePath := "172.18.0.1:/home/nfsdata" //  根目录
+	basePath := "172.18.0.1:/home/nfsdata" // 根目录
 	tmpPath := "/tmp/"
 	volCap := &csi.VolumeCapability{
 		AccessType: &csi.VolumeCapability_Mount{

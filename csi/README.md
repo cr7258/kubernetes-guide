@@ -17,7 +17,9 @@ erichough/nfs-server
 ```bash
 # 查看容器 IP
 docker inspect nfsserver | grep IPAddress
-mount -t nfs 172.18.0.1:/home/nfsdata ~/tmp/testdata
+mkdir /tmp/testdata
+# 同时需要替换代码和配置文件中的 IP 地址为你自己 NFS 服务器的 IP 地址
+mount -t nfs 172.18.0.1:/home/nfsdata /tmp/testdata
 ```
 
 ## 创建 Kubernetes 集群
@@ -56,8 +58,17 @@ kubectl apply -f deploy/driver.yaml
 确认容器正常运行：
 
 ```bash
-
+root@instance-1:~/kubernetes-guide/csi# kubectl get pod -n mycsi
+NAME                    READY   STATUS    RESTARTS   AGE
+mycsi-99d58db6d-wh7sw   5/5     Running   0          6s
 ```
+
+## 部署 Pod 使用 PVC
+
+```bash
+kubectl apply -f deploy/testcsi.yaml
+```
+
 
 ## 参考资料
 - [k8s CSI插件开发基础入门篇](https://www.jtthink.com/course/208)
