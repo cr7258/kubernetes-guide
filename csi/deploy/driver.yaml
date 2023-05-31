@@ -18,7 +18,7 @@ spec:
       serviceAccount: mycsi-sa
       containers:
         - name: mycsi-driver
-          image: alpine:3.12
+          image: busybox:1.28
           imagePullPolicy: "IfNotPresent"
           workingDir: "/app"
           command: ["./mycsi"]

@@ -125,9 +125,9 @@ func (s *ControllerService) ControllerGetVolume(ctx context.Context, request *cs
 
 func (cs *ControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	klog.Info("创建volume")
-	//klog.Info("名称是", req.GetName())
-	//klog.Info("参数是:", req.GetParameters())
-	basePath := "172.17.70.145:/home/chengzw/nfsdata" //  根目录
+	klog.Info("名称是", req.GetName())
+	klog.Info("参数是:", req.GetParameters())
+	basePath := "172.18.0.1:/home/nfsdata" //  根目录
 	tmpPath := "/tmp/"
 	volCap := &csi.VolumeCapability{
 		AccessType: &csi.VolumeCapability_Mount{
