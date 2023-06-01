@@ -18,7 +18,7 @@ spec:
       serviceAccount: mycsi-sa
       containers:
         - name: mycsi-driver
-          image: busybox:1.28
+          image: ubuntu:20.04
           imagePullPolicy: "IfNotPresent"
           workingDir: "/app"
           command: ["./mycsi"]
@@ -31,8 +31,6 @@ spec:
                   fieldPath: spec.nodeName
           securityContext:
             privileged: true
-            capabilities:
-              add: [ "SYS_ADMIN" ]
           volumeMounts:
             - name: kubelet-dir
               mountPath: /var/lib/kubelet

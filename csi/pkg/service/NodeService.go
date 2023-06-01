@@ -20,7 +20,6 @@ func NewNodeService(nodeID string) *NodeService {
 }
 
 func (n *NodeService) NodeUnstageVolume(ctx context.Context, request *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	//TODO implement me
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
@@ -29,7 +28,6 @@ const FixedSourceDir = "172.18.0.1:/home/nfsdata"
 func (n *NodeService) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	opts := request.GetVolumeCapability().GetMount().GetMountFlags()
 	klog.Infoln("挂载参数：", opts)
-	//TODO implement me
 	klog.Infof("NodePublishVolume")
 	//mount -t nfs xxxx:xxx  /var/lib
 	target := request.GetTargetPath()
@@ -61,8 +59,6 @@ func (n *NodeService) NodePublishVolume(ctx context.Context, request *csi.NodePu
 }
 
 func (n *NodeService) NodeUnpublishVolume(ctx context.Context, request *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	//TODO implement me
-
 	err := mount.CleanupMountPoint(request.GetTargetPath(), n.mounter, true)
 	if err != nil {
 		return nil, err
@@ -72,23 +68,20 @@ func (n *NodeService) NodeUnpublishVolume(ctx context.Context, request *csi.Node
 }
 
 func (n *NodeService) NodeGetVolumeStats(ctx context.Context, request *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
-	//TODO implement me
 	return &csi.NodeGetVolumeStatsResponse{}, nil
 }
 
 func (n *NodeService) NodeExpandVolume(ctx context.Context, request *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
-	//TODO implement me
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 func (n *NodeService) NodeGetCapabilities(ctx context.Context, request *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	//TODO implement me
 	return &csi.NodeGetCapabilitiesResponse{
 		Capabilities: []*csi.NodeServiceCapability{
 			{
 				Type: &csi.NodeServiceCapability_Rpc{
 					Rpc: &csi.NodeServiceCapability_RPC{
-						Type: csi.NodeServiceCapability_RPC_UNKNOWN,
+						Type: csi.NodeServiceCapability_RPC_UNKNOWN, // 不执行 NodeStageVolume
 					},
 				},
 			},
@@ -111,7 +104,6 @@ func (n *NodeService) NodeGetCapabilities(ctx context.Context, request *csi.Node
 }
 
 func (n *NodeService) NodeGetInfo(ctx context.Context, request *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-	//TODO implement me
 	klog.Infoln("NodeGetInfo")
 	return &csi.NodeGetInfoResponse{
 		NodeId: n.nodeID,
@@ -123,6 +115,5 @@ var _ csi.NodeServer = &NodeService{}
 // 如果使用云盘，
 // 就会将云硬盘格式化成对应文件系统 将volume mount到一个全局的目录
 func (n *NodeService) NodeStageVolume(ctx context.Context, request *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	//TODO implement me
 	return nil, status.Error(codes.Unimplemented, "")
 }
