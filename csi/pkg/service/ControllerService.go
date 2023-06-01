@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -40,33 +39,27 @@ func (cs *ControllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVo
 
 func (s *ControllerService) ControllerPublishVolume(ctx context.Context, request *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	klog.Info("发布PublishVolume")
-	//TODO implement me
 	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
 func (s *ControllerService) ControllerUnpublishVolume(ctx context.Context, request *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	//TODO implement me
 	klog.Info("执行UnpublishVolume")
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
 func (s *ControllerService) ValidateVolumeCapabilities(ctx context.Context, request *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
-	//TODO implement me
 	return nil, status.Errorf(codes.Unimplemented, "method ValidateVolumeCapabilities not implemented")
 
 }
 
 func (s *ControllerService) ListVolumes(ctx context.Context, request *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	klog.Info("列出volume")
-	//TODO implement me
 	return &csi.ListVolumesResponse{
 		Entries: VolumeSet.List(),
 	}, nil
 }
 
 func (s *ControllerService) GetCapacity(ctx context.Context, request *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
-	//TODO implement me
-
 	return &csi.GetCapacityResponse{
 		AvailableCapacity: 100 * 1024 * 1024,
 	}, nil
@@ -94,31 +87,26 @@ func (s *ControllerService) ControllerGetCapabilities(ctx context.Context, reque
 }
 
 func (s *ControllerService) CreateSnapshot(ctx context.Context, request *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
-	//TODO implement me
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSnapshot not implemented")
 
 }
 
 func (s *ControllerService) DeleteSnapshot(ctx context.Context, request *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
-	//TODO implement me
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSnapshot not implemented")
 }
 
 func (s *ControllerService) ListSnapshots(ctx context.Context, request *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
-	//TODO implement me
 	return nil, status.Errorf(codes.Unimplemented, "method ListSnapshots not implemented")
 
 }
 
 func (s *ControllerService) ControllerExpandVolume(ctx context.Context, request *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	//TODO implement me
 	return nil, status.Errorf(codes.Unimplemented, "method ControllerExpandVolume not implemented")
 
 }
 
 func (s *ControllerService) ControllerGetVolume(ctx context.Context, request *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	klog.Info("获取volume,id是:", request.VolumeId)
-	//TODO implement me
 	v, err := VolumeSet.Get(request.VolumeId)
 	if err != nil {
 		return nil, err
@@ -182,106 +170,3 @@ func (cs *ControllerService) CreateVolume(ctx context.Context, req *csi.CreateVo
 }
 
 var _ csi.ControllerServer = &ControllerService{}
-
-// ////////////////////////////////以下是自定义函数
-
-const (
-	paramServer           = "server"
-	paramShare            = "share"
-	paramSubDir           = "subdir"
-	mountOptionsField     = "mountoptions"
-	mountPermissionsField = "mountpermissions"
-	pvcNameKey            = "csi.storage.k8s.io/pvc/name"
-	pvcNamespaceKey       = "csi.storage.k8s.io/pvc/namespace"
-	pvNameKey             = "csi.storage.k8s.io/pv/name"
-	pvcNameMetadata       = "${pvc.metadata.name}"
-	pvcNamespaceMetadata  = "${pvc.metadata.namespace}"
-	pvNameMetadata        = "${pv.metadata.name}"
-	separator             = "#"
-)
-
-type nfsVolume struct {
-	// Volume id
-	id string
-	// Address of the NFS server.
-	// Matches paramServer.
-	server string
-	// Base directory of the NFS server to create volumes under
-	// Matches paramShare.
-	baseDir string
-	// Subdirectory of the NFS server to create volumes under
-	subDir string
-	// size of volume
-	size int64
-	// pv name when subDir is not empty
-	uuid string
-}
-
-const (
-	idServer = iota
-	idBaseDir
-	idSubDir
-	idUUID
-	totalIDElements // Always last
-)
-
-func replaceWithMap(str string, m map[string]string) string {
-	for k, v := range m {
-		if k != "" {
-			str = strings.ReplaceAll(str, k, v)
-		}
-	}
-	return str
-}
-
-// 官方的一个 拼凑ID的方式
-func getVolumeIDFromNfsVol(vol *nfsVolume) string {
-	idElements := make([]string, totalIDElements)
-	idElements[idServer] = strings.Trim(vol.server, "/")
-	idElements[idBaseDir] = strings.Trim(vol.baseDir, "/")
-	idElements[idSubDir] = strings.Trim(vol.subDir, "/")
-	idElements[idUUID] = vol.uuid
-	return strings.Join(idElements, separator)
-}
-func newNFSVolume(name string, size int64, params map[string]string) (*nfsVolume, error) {
-	var server, baseDir, subDir string
-	subDirReplaceMap := map[string]string{}
-
-	for k, v := range params {
-		switch strings.ToLower(k) {
-		case paramServer:
-			server = v
-		case paramShare:
-			baseDir = v
-		case paramSubDir:
-			subDir = v
-		case pvcNamespaceKey:
-			subDirReplaceMap[pvcNamespaceMetadata] = v
-		case pvcNameKey:
-			subDirReplaceMap[pvcNameMetadata] = v
-		case pvNameKey:
-			subDirReplaceMap[pvNameMetadata] = v
-		}
-	}
-
-	if server == "" {
-		return nil, fmt.Errorf("%v is a required parameter", paramServer)
-	}
-
-	vol := &nfsVolume{
-		server:  server,
-		baseDir: baseDir,
-		size:    size,
-	}
-	if subDir == "" {
-		// use pv name by default if not specified
-		vol.subDir = name
-	} else {
-		// replace pv/pvc name namespace metadata in subDir
-		vol.subDir = replaceWithMap(subDir, subDirReplaceMap)
-		// make volume id unique if subDir is provided
-		vol.uuid = name
-	}
-	vol.id = getVolumeIDFromNfsVol(vol)
-	return vol, nil
-}
