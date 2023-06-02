@@ -8,6 +8,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/mount"
 	"os"
+	"strings"
 )
 
 type NodeService struct {
@@ -23,18 +24,14 @@ func (n *NodeService) NodeUnstageVolume(ctx context.Context, request *csi.NodeUn
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-const FixedSourceDir = "172.18.0.1:/home/nfsdata"
-
 func (n *NodeService) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	opts := request.GetVolumeCapability().GetMount().GetMountFlags()
 	klog.Infoln("挂载参数：", opts)
 	klog.Infof("NodePublishVolume")
-	//mount -t nfs xxxx:xxx  /var/lib
 	target := request.GetTargetPath()
 	// 此时target 文件夹 格式是：
-	//var/lib/kubelet/pods/cabd93de-cf9f-4025-a965-14c3d5cf1b8f/volumes/kubernetes.io~csi/pvc-c02b9101-0993
-	// 由于 我们写的粗暴， 这个文件夹是没有的  。 我们手工创建下
-
+	// /var/lib/kubelet/pods/54408ec9-7843-4f36-99df-bbcd672406d7/volumes/kubernetes.io~csi/pvc-6cd86a79-9d92-464b-9a80-76ea620506f5/mount
+	// 由于我们写的粗暴，这个文件夹是没有的，我们手工创建下
 	klog.Info("要挂载的目录是:", target)
 	nn, err := n.mounter.IsLikelyNotMountPoint(target)
 	if err != nil {
@@ -49,9 +46,12 @@ func (n *NodeService) NodePublishVolume(ctx context.Context, request *csi.NodePu
 	if !nn {
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
-	//m := mount.New("")
-	//m.Mount(FixedSourceDir, target, "nfs", opts)
-	err = n.mounter.Mount(FixedSourceDir, target, "nfs", opts)
+	//mount -t nfs 172.18.0.1:/home/nfsdata/pvc-6cd86a79-9d92-464b-9a80-76ea620506f5  /var/lib/kubelet/pods/54408ec9-7843-4f36-99df-bbcd672406d7/volumes/kubernetes.io~csi/pvc-6cd86a79-9d92-464b-9a80-76ea620506f5/mount
+	vid := request.GetVolumeId()
+	klog.Info("要挂载的volume是：", vid)
+	pvName := strings.Replace(vid, "jtthink-volume-", "", -1)
+	klog.Info("要挂载的pv是：", vid)
+	err = n.mounter.Mount(basePath+"/"+pvName, target, "nfs", opts)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

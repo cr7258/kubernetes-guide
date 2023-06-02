@@ -10,7 +10,7 @@ import (
 )
 
 func MountTemp(basePath, pvName string, mounter mount.Interface, createSubDir bool) error {
-	tmpPath := "/tmp/"
+	tmpPath := "/tmpPath/"
 	volCap := &csi.VolumeCapability{
 		AccessType: &csi.VolumeCapability_Mount{
 			Mount: &csi.VolumeCapability_MountVolume{},
@@ -30,7 +30,7 @@ func MountTemp(basePath, pvName string, mounter mount.Interface, createSubDir bo
 		}
 	}
 	if !nn {
-		return status.Error(codes.Internal, "无法处理tmp目录进行临时挂载")
+		return status.Error(codes.Internal, "无法处理 tmpPath 目录进行临时挂载")
 	}
 
 	// 挂载到临时目录
@@ -46,7 +46,7 @@ func MountTemp(basePath, pvName string, mounter mount.Interface, createSubDir bo
 	}()
 
 	if createSubDir {
-		// 一旦挂载 /tmp 成功， 那我们就可以创建 /tmp/pvc-xxx-xx-x 子目录
+		// 一旦挂载 /tmpPath 成功， 那我们就可以创建 /tmpPath/pvc-xxx-xx-x 子目录
 		if err = os.Mkdir(tmpPath+pvName, 0777); err != nil && !os.IsExist(err) {
 			return status.Errorf(codes.Internal, "无法创建子文件夹: %v", err.Error())
 		}
