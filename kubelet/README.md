@@ -1,4 +1,26 @@
-[TOC]
+* [环境准备](#环境准备)
+   * [创建 Linux 虚拟机](#创建-linux-虚拟机)
+   * [使用 Kind 创建 Kubernetes 集群](#使用-kind-创建-kubernetes-集群)
+* [第一章 Kubelet 快速魔改，本地启动](#第一章-kubelet-快速魔改本地启动)
+   * [修改 Kubelet 代码](#修改-kubelet-代码)
+   * [启动 Kubelet](#启动-kubelet)
+   * [节点 Ready 状态的原理](#节点-ready-状态的原理)
+   * [模拟 Kubelet Lease 续期](#模拟-kubelet-lease-续期)
+* [第二章 代码实现 Kubelet 注册(TLS Bootstrap)](#第二章-代码实现-kubelet-注册tls-bootstrap)
+   * [手工实现 CSR 请求和获取证书](#手工实现-csr-请求和获取证书)
+      * [1 创建 CSR 文件](#1-创建-csr-文件)
+      * [2 创建 CertificateSigningRequest 对象](#2-创建-certificatesigningrequest-对象)
+      * [3 手动批复](#3-手动批复)
+      * [4 获取证书内容](#4-获取证书内容)
+   * [代码实现 CSR 请求](#代码实现-csr-请求)
+   * [手撸 Kubelet 之创建节点](#手撸-kubelet-之创建节点)
+* [第三章 Pod 状态和监听（主模块源码学习）](#第三章-pod-状态和监听主模块源码学习)
+   * [手动调用 PLEG](#手动调用-pleg)
+   * [SyncLoop](#syncloop)
+   * [手工调用 PodManager，创建一个假的静态 Pod](#手工调用-podmanager创建一个假的静态-pod)
+   * [监听 Pod 加入缓存](#监听-pod-加入缓存)
+   * [PodWorkers](#podworkers)
+
 
 ## 环境准备
 ### 创建 Linux 虚拟机

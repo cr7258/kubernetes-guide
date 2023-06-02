@@ -1,4 +1,12 @@
-[[TOC]]
+* [CSI 介绍](#csi-介绍)
+* [动态卷供应（Dynamic Volume Provisioning）执行过程](#动态卷供应dynamic-volume-provisioning执行过程)
+* [部署 NFS 服务器](#部署-nfs-服务器)
+* [创建 Kubernetes 集群](#创建-kubernetes-集群)
+* [编译代码](#编译代码)
+* [部署 CSI 容器](#部署-csi-容器)
+* [部署 Pod 使用 PVC](#部署-pod-使用-pvc)
+* [参考资料](#参考资料)
+
 
 ## CSI 介绍
 
@@ -16,9 +24,12 @@ Custom Components 本质是 3 个 gRPC Services：
 - Controller Service：主要定义一些无需在宿主机上执行的操作，这也是与下文的 Node Service 最根本的区别。用于实现创建/删除 volume、attach/detach volume、volume 快照、volume 扩缩容等功能。以 CreateVolume 为例，k8s 通过调用该方法创建底层存储。比如底层使用了某云供应商的云硬盘服务，开发者在 CreateVolume 方法实现中应该调用云硬盘服务的创建/订购云硬盘的 API，调用 API 这个操作是不需要在特定宿主机上执行的。
 - Node Service：定义了需要在宿主机上执行的操作，比如：mount、unmount。在前面的部署架构图中，Node Service 使用 Daemonset 的方式部署，也是为了确保 Node Service 会被运行在每个节点，以便执行诸如 mount 之类的指令。
 
-ControllerPublishVolume（可选）: 卷创建好后，发布到某个节点（好比云盘购买后，需要挂到节点里，才能看到）
-NodeStageVolume：将云硬盘格式化成对应文件系统，并且挂载到一个全局目录上（方便多 Pod 使用同一个卷，只需格式化一次）
-NodePublishVolume（必须）：把宿主机目录（或全局目录）挂载到 Pod 里。   
+有 5 个比较重要的调用方法：
+- CreateVolume：创建底层存储 Volume，例如为 Pod PVC 创建单独的目录。
+- DeleteVolume：删除 Volume。
+- ControllerPublishVolume（可选）: 卷创建好后，发布到某个节点（好比云盘购买后，需要挂到节点里，才能看到）
+- NodeStageVolume（可选）：将云硬盘格式化成对应文件系统，并且挂载到一个全局目录上（方便多 Pod 使用同一个卷，只需格式化一次）
+- NodePublishVolume：把宿主机目录（或全局目录）挂载到 Pod 里。   
 
 ![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230602105434.png)
 
