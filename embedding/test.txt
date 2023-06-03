@@ -1,0 +1,73 @@
+********************************************************************************************************************************************************
+How to use apply instead of create for deployment in Kubernetes?
+********************************************************************************************************************************************************
+
+
+
+
+kubectl create -f postgres-deployment.yaml
+
+but if I go
+
+kubectl apply -f postgres-deployment.yaml
+
+I am presented with the lovely error message:
+
+> error: unable to decode "postgres-deployment.yaml": no kind "Deployment"
+> is registered for version "apps/v1beta1"
+
+I have tried searching for an explanation to what this means but I cannot figure it out.
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+name: postgres-deployment
+spec:
+replicas: 1
+selector:
+matchLabels:
+app: postgres
+template:
+metadata:
+labels:
+app: postgres
+spec:
+containers:
+image: postgres:10.1
+ports:
+
+* kubernetes
+
+
+
+
+
+can you post the output for kubectl version
+
+
+
+Does this answer your question? kubectl apply vs kubectl create? ( https://stackoverflow.com/questions/47369351/kubectl-apply-vs-kubectl-create )
+
+
+1 Answer 1
+
+Sorted by: Reset to default
+
+
+Old Kubernetes versions supported the Deployment object on the extensions/v1beta1 API group. That is no longer the case ( https://v1-9.docs.kubernetes.io/docs/api-reference/v1.9/#deployment-v1beta1-extensions ).
+
+For Kubernetes versions before 1.9.0 you should use the API group apps/v1beta2.
+
+In Kubernetes 1.9 ( https://v1-9.docs.kubernetes.io/docs/api-reference/v1.9/#deployment-v1-apps ) and above you should use the API group apps/v1.
+
+
+
+
+
+But why does kubectl create work and kubectl apply doesn't? I would expect that both fail when a wrong API version is used.
+
+
+
+
+Client Version or Server version?
+
