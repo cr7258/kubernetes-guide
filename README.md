@@ -16,3 +16,4 @@
 - ebpf: [eBPF 实战入门之环境篇](./ebpf)
 - csi: [K8S CSI 存储插件基础入门篇](./csi)
 - embedding: [ChatGPT 和 K8S 实战之:Embeddings 篇](./embedding)
+- wasm_k8s: [Rust Wasm + k8s 云原生探索](./wasm_k8s)
