@@ -136,7 +136,7 @@ fn main() {
 }
 ```
 
-## 构建 WASM 字节码
+### 构建 WASM 字节码
 
 生成的 wasm 字节码文件位于 target/wasm32-wasi/release/hello_world.wasm。
 
@@ -151,14 +151,33 @@ cargo build --target wasm32-wasi --release
 chmod +x target/wasm32-wasi/release/hello_world.wasm
 ```
 
+## 构建镜像
+
+安装 nerdctl 和 buildkit 工具来构建镜像。
+
+```bash
+wget https://github.com/containerd/nerdctl/releases/download/v1.4.0/nerdctl-1.4.0-linux-amd64.tar.gz
+tar -xzvf nerdctl-1.4.0-linux-amd64.tar.gz
+chmod + nerdctl
+mv nerdctl /usr/local/bin/
+```
+
+```bash
+
 在 target/wasm32-wasi/release/ 文件夹下创建一个名为 Dockerfile 的文件，内容如下:
 
 ```Dockerfile
 FROM scratch
 ADD wasi_example_main.wasm /
-CMD ["/wasi_example_main.wasm"]
+CMD ["/hello_world.wasm"]
 ```
 
+然后在 arget/wasm32-wasi/release/ 目录下，执行以下命令：
+
+```bash
+
+
+```
 ## 参考资料
 - [用 Kubernetes 管理 WasmEdge 应用](https://wasmedge.org/book/zh/kubernetes.html)
 - [Kwasm](https://kwasm.sh/quickstart/)
