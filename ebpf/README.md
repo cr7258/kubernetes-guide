@@ -43,6 +43,48 @@ $ sudo cat /sys/kernel/debug/tracing/trace_pipe
 
 ## tracepoint 监控 Go 程序写入
 
+启动 Go 程序执行写入操作。
+
+```bash
+go run testwrite/main.go
+当前的PID是： 965676
+写入成功 2023-06-06 14:24:05.536120899 +0000 UTC m=+0.000339041
+写入成功 2023-06-06 14:24:10.538152765 +0000 UTC m=+5.002370896
+```
+
+修改 tracepoint/test.bpf.c 文件，只对指定 PID 的程序进行跟踪。
+
+```bash
+const int myappid=965676; // 替换成 Go 程序的 PID
+```
+
+使用 ecc 编译程序：
+
+```bash
+cd tracepoint
+docker run -it -v `pwd`/:/src/ yunwei37/ebpm:latest
+```
+
+编译出来后执行：
+
+```bash
+ecli run ./package.json
+```
+
+查看效果：
+
+```bash
+cat /sys/kernel/debug/tracing/trace_pipe
+
+# 输出
+main-965676  [001] d...1 1730125.361244: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+
+main-965676  [001] d...1 1730125.361303: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+
+main-965676  [001] d...1 1730130.361559: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+
+main-965676  [001] d...1 1730130.361612: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+```
 
 
 ## kprobe 监控 Go 程序写入
