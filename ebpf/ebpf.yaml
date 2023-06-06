@@ -27,11 +27,6 @@ provision:
       sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
       sudo apt-get update
       sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-      
-      # 安装 Go
-      wget https://go.dev/dl/go1.19.9.linux-arm64.tar.gz
-      tar -C /usr/local -xzf go1.19.9.linux-arm64.tar.gz
-      echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bash_profile
 
       # 安装 eunomia-bpf
       wget https://aka.pw/bpf-ecli -O ecli && chmod +x ./ecli
