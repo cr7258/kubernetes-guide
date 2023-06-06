@@ -1,3 +1,9 @@
+* [创建 Linux 虚拟机](#创建-linux-虚拟机)
+* [启动第一个 eBPF 程序](#启动第一个-ebpf-程序)
+* [tracepoint 监控 Go 程序写入](#tracepoint-监控-go-程序写入)
+* [kprobe 监控 Go 程序写入](#kprobe-监控-go-程序写入)
+* [XDP 拦截 ICMP 协议](#xdp-拦截-icmp-协议)
+
 ## 创建 Linux 虚拟机
 
 ```bash
@@ -166,11 +172,112 @@ cd xdp
 docker run -it -v `pwd`/:/src/ yunwei37/ebpm:latest
 ```
 
+启用 XDP 之前先创建一个容器。
+
+```bash
+docker run -itd --name nginx nginx
+```
+
+获取容器的 IP 地址。
+
+```bash
+docker inspect -f "{{ .NetworkSettings.IPAddress }}" nginx
+
+# 输出
+172.17.0.3
+```
+
+此时 curl 和 ping 容器都是可以成功访问的。
+
+```bash
+> curl 172.17.0.3
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+> ping 172.17.0.3
+PING 172.17.0.3 (172.17.0.3) 56(84) bytes of data.
+64 bytes from 172.17.0.3: icmp_seq=1 ttl=64 time=0.059 ms
+64 bytes from 172.17.0.3: icmp_seq=2 ttl=64 time=0.058 ms
+64 bytes from 172.17.0.3: icmp_seq=3 ttl=64 time=0.044 ms
+```
+
 启用 XDP，使用 docker0 或者自己创建网桥来处理，不要对 eth0 下手，以免连不上主机。
 
 ```bash
 # ip link set dev <网卡> xdp obj <文件名> sec xdp verbose
 ip link set dev docker0 xdp obj xdp.bpf.o sec xdp verbose
+```
+
+此时再次访问容器，会发现无法通过 Ping 访问容器了，但是 curl 还是可以访问容器。
+
+```bash
+> ping 172.17.0.3
+PING 172.17.0.3 (172.17.0.3) 56(84) bytes of data.
+^C
+--- 172.17.0.3 ping statistics ---
+45 packets transmitted, 0 received, 100% packet loss, time 45051ms
+
+> curl 172.17.0.3
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+```
+
+查看 trace 日志。
+
+```bash
+cat /sys/kernel/debug/tracing/trace_pipe
+
+# 输出
+ping-152078  [000] d.s11 1732113.788260: bpf_trace_printk: Drop ICMP packets
+
+ping-969242  [001] d.s11 1732114.208199: bpf_trace_printk: Drop ICMP packets
+
+ping-152078  [000] d.s11 1732114.788594: bpf_trace_printk: Drop ICMP packets
+
+ping-969242  [000] d.s11 1732115.232141: bpf_trace_printk: Drop ICMP packets
 ```
 
 卸载 XDP：

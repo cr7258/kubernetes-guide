@@ -24,6 +24,7 @@ int my_pass(struct xdp_md* ctx) {
 
    if (ip->protocol == IPPROTO_ICMP) {
         // 拦截 ICMP Ping 请求
+        bpf_printk("Drop ICMP packets\n");
         return XDP_DROP;
     }
 
