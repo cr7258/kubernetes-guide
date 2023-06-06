@@ -1,3 +1,3 @@
 FROM scratch
-ADD wasi_example_main.wasm /
+ADD hello_world.wasm /
 CMD ["/hello_world.wasm"]

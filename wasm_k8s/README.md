@@ -158,8 +158,15 @@ chmod +x target/wasm32-wasi/release/hello_world.wasm
 ```bash
 wget https://github.com/containerd/nerdctl/releases/download/v1.4.0/nerdctl-1.4.0-linux-amd64.tar.gz
 tar -xzvf nerdctl-1.4.0-linux-amd64.tar.gz
-chmod + nerdctl
+chmod +x nerdctl
 mv nerdctl /usr/local/bin/
+
+wget https://github.com/moby/buildkit/releases/download/v0.11.6/buildkit-v0.11.6.linux-amd64.tar.gz
+tar -xzvf buildkit-v0.11.6.linux-amd64.tar.gz
+chmod +x bin/buildctl
+chmod +x bin/buildkitd
+mv bin/buildctl /usr/local/bin/
+mv bin/buildkitd /usr/local/bin/
 ```
 
 ```bash
@@ -172,13 +179,122 @@ ADD wasi_example_main.wasm /
 CMD ["/hello_world.wasm"]
 ```
 
-然后在 arget/wasm32-wasi/release/ 目录下，执行以下命令：
+先启动 buildkitd。
 
 ```bash
-
-
+root@instance-2:~# buildkitd
+INFO[2023-06-05T04:27:23Z] auto snapshotter: using overlayfs
+WARN[2023-06-05T04:27:23Z] using host network as the default
+INFO[2023-06-05T04:27:23Z] found worker "m4o6vp0pdnjzwzswcl93bjb0l", labels=map[org.mobyproject.buildkit.worker.executor:oci org.mobyproject.buildkit.worker.hostname:instance-2 org.mobyproject.buildkit.worker.network:host org.mobyproject.buildkit.worker.oci.process-mode:sandbox org.mobyproject.buildkit.worker.selinux.enabled:false org.mobyproject.buildkit.worker.snapshotter:overlayfs], platforms=[linux/amd64 linux/amd64/v2 linux/amd64/v3 linux/386]
+WARN[2023-06-05T04:27:23Z] using host network as the default
+INFO[2023-06-05T04:27:23Z] found worker "nfs0tm77mjprg3shntec47cwh", labels=map[org.mobyproject.buildkit.worker.containerd.namespace:buildkit org.mobyproject.buildkit.worker.containerd.uuid:02cb56b1-0a57-4f39-83b8-08974851e04c org.mobyproject.buildkit.worker.executor:containerd org.mobyproject.buildkit.worker.hostname:instance-2 org.mobyproject.buildkit.worker.network:host org.mobyproject.buildkit.worker.selinux.enabled:false org.mobyproject.buildkit.worker.snapshotter:overlayfs], platforms=[linux/amd64 linux/amd64/v2 linux/amd64/v3 linux/386]
+INFO[2023-06-05T04:27:23Z] found 2 workers, default="m4o6vp0pdnjzwzswcl93bjb0l"
+WARN[2023-06-05T04:27:23Z] currently, only the default worker can be used.
+INFO[2023-06-05T04:27:23Z] running server on /run/buildkit/buildkitd.sock
 ```
+
+然后在 target/wasm32-wasi/release/ 目录下，执行以下命令构建镜像：
+
+```bash
+nerdctl build -t cr7258/mywasm:v1 -f Dockerfile .
+```
+
+将镜像推送到镜像仓库。
+
+```bash
+# 登录 DockerHub
+nerdctl login
+nerdctl push cr7258/mywasm:v1
+```
+
+## 运行 WASM 应用
+
+运行 WASM 应用时要添加 `module.wasm.image/variant=compat-smart` annotation，表明它是一个没有客户操作系统的 WebAssembly 应用程序。
+
+```bash
+ctr run --rm --runc-binary crun --runtime io.containerd.runc.v2 --label module.wasm.image/variant=compat-smart docker.io/cr7258/mywasm:v1 mywasmtest
+
+nerdctl run -d \
+--runtime crun \
+--name mywasmtest \
+--runtime io.containerd.runc.v2 \
+--label module.wasm.image/variant=compat-smart \
+docker.io/cr7258/mywasm:v1
+```
+
+## 在 Kubernetes 集群中运行 WASM 应用
+
+```bash
+kind create cluster \
+--name wasm-demo \
+--image ghcr.io/liquid-reply/kind-crun-wasm:v1.23.4
+```
+
+```bash
+kubectl run wasi-demo \
+--image=cr7258/mywasm:v1 \
+--annotations="module.wasm.image/variant=compat-smart"
+
+kubectl logs -f wasi-demo
+# 输出
+Hello, Rust
+Hello, Rust
+Hello, Rust
+```
+
+```yaml
+kind create cluster --config - <<EOF
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: wasm-demo-2
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker
+EOF
+```
+
+```bash
+helm repo add kwasm http://kwasm.sh/kwasm-operator/
+helm install -n kwasm --create-namespace kwasm-operator kwasm/kwasm-operator
+
+kubectl annotate node --all kwasm.sh/kwasm-node=true
+# kubectl annotate node wasm-demo-2-worker kwasm.sh/kwasm-node=true
+```
+
+```yaml
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: crun
+handler: crun
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: wasi-demo
+  annotations:
+    module.wasm.image/variant: compat-smart
+spec:
+  runtimeClassName: crun
+  containers:
+  - name: wasi-demo
+    image: cr7258/mywasm:v1
+  nodeName: wasm-demo-2-worker
+```
+
+```bash
+root@instance-1:~# docker exec -it wasm-demo-2-worker bash
+root@wasm-demo-2-worker:/# /opt/kwasm/bin/crun -v
+crun version 1.8.1
+commit: f8a096be060b22ccd3d5f3ebe44108517fbf6c30
+rundir: /run/crun
+spec: 1.0.0
++SYSTEMD +SELINUX +APPARMOR +CAP +SECCOMP +EBPF +WASM:wasmedge +YAJL
+```
+
 ## 参考资料
 - [用 Kubernetes 管理 WasmEdge 应用](https://wasmedge.org/book/zh/kubernetes.html)
 - [Kwasm](https://kwasm.sh/quickstart/)
 - [kind-crun-wasm](https://github.com/Liquid-Reply/kind-crun-wasm)
+- [WebAssembly on Kubernetes: everything you need to know](https://nigelpoulton.com/webassembly-on-kubernetes-everything-you-need-to-know/)
