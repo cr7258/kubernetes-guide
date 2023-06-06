@@ -86,8 +86,44 @@ main-965676  [001] d...1 1730130.361559: bpf_trace_printk: jtthink-BPF triggered
 main-965676  [001] d...1 1730130.361612: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
 ```
 
-
 ## kprobe 监控 Go 程序写入
 
 kprobes ：动态内核跟踪技术，可以定义自己的回调函数，在内核几乎所有的函数中动态地插入探测点，当内核执行流程执行到指定的探测函数时，会调用该回调函数，用户即可收集所需的信息。虽然灵活，但是可能相对 tracepoint (预定义跟踪点进行采样)有性能影响。
 我们可以通过 `cat /proc/kallsyms` 来查看内核函数，至于函数体可能需要查看你所因此内核的源码。
+
+
+继续使用 kprobe 来监控上面运行的 Go 程序，修改 tracepoint/test.bpf.c 文件，只对指定 PID 的程序进行跟踪。
+
+```bash
+if (data.pid!=965676){ // 替换成 Go 程序的 PID 
+        return 0;
+    }
+```
+
+使用 ecc 编译程序：
+
+```bash
+cd kprobe
+docker run -it -v `pwd`/:/src/ yunwei37/ebpm:latest
+```
+
+编译出来后执行：
+
+```bash
+ecli run ./package.json
+```
+
+查看效果：
+
+```bash
+cat /sys/kernel/debug/tracing/trace_pipe
+
+# 输出
+main-965676  [001] d...1 1730125.361244: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+
+main-965676  [001] d...1 1730125.361303: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+
+main-965676  [001] d...1 1730130.361559: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+
+main-965676  [001] d...1 1730130.361612: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+```
