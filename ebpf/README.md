@@ -119,11 +119,62 @@ ecli run ./package.json
 cat /sys/kernel/debug/tracing/trace_pipe
 
 # 输出
-main-965676  [001] d...1 1730125.361244: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+main-965676  [000] d...1 1730410.560730: bpf_trace_printk: pid= 965676,name:main. writing data
 
-main-965676  [001] d...1 1730125.361303: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+main-965676  [000] d...1 1730410.560773: bpf_trace_printk: pid= 965676,name:main. writing data
 
-main-965676  [001] d...1 1730130.361559: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+main-965676  [000] d...1 1730415.564056: bpf_trace_printk: pid= 965676,name:main. writing data
 
-main-965676  [001] d...1 1730130.361612: bpf_trace_printk: jtthink-BPF triggered from PID 965676.
+main-965676  [000] d...1 1730415.564105: bpf_trace_printk: pid= 965676,name:main. writing data
+```
+## XDP 拦截 ICMP 协议
+
+xdp_md 在头文件 /usr/include/linux/bpf.h 有定义：
+- data： 数据包数据的地址。 指向数据包数据的开头。
+- data_end： 数据包数据的结束地址。指向数据包的结尾。
+- data_meta： 数据包元数据的地址。存储有关数据包的附加信息。
+- ingress_ifindex： 接收数据包的网络接口的索引。
+- rx_queue_index： 接收数据包的接收队列的索引。
+
+头文件中定义 if_ether.h。它代表以太网链路层报头。其主要目的是定义以太网报头的结构，其中包括源 MAC 地址和目的 MAC 地址，以及以太网协议类型。
+
+```c
+struct ethhdr
+{
+unsigned char h_dest[ETH_ALEN]; //目的MAC地址
+unsigned char h_source[ETH_ALEN]; //源MAC地址
+__u16 h_proto ; //网络层所使用的协议类型
+}__attribute__((packed))
+```
+
+头文件 iphdr 中定义 <linux/ip.h>。它用于描述 IPv4 数据包的 IP 标头。该结构包括 IP 版本、报头长度、服务类型、数据包总长度、标识号、标志、生存时间、协议、校验和、源 IP 地址和目标 IP 地址等字段。协议常见数值：
+- 1：ICMP（Internet 控制报文协议）
+- 2：IGMP（Internet 组管理协议）
+- 6：TCP（传输控制协议）
+- 17：UDP（用户数据报协议）
+- 41：IPv6 封装的 IPv6 数据报
+- 47：GRE（通用路由封装）
+- 50：ESP（封装安全载荷）
+- 51：AH（认证头部）
+- 89：OSPF（开放式最短路径优先协议）
+- 132：SCTP（流控制传输协议）
+
+使用 ecc 编译程序：
+
+```bash
+cd xdp
+docker run -it -v `pwd`/:/src/ yunwei37/ebpm:latest
+```
+
+启用 XDP，使用 docker0 或者自己创建网桥来处理，不要对 eth0 下手，以免连不上主机。
+
+```bash
+# ip link set dev <网卡> xdp obj <文件名> sec xdp verbose
+ip link set dev docker0 xdp obj xdp.bpf.o sec xdp verbose
+```
+
+卸载 XDP：
+
+```bash
+ip link set dev docker0 xdp off
 ```
