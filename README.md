@@ -17,3 +17,4 @@
 - csi: [K8S CSI 存储插件基础入门篇](./csi)
 - embedding: [ChatGPT 和 K8S 实战之:Embeddings 篇](./embedding)
 - wasm_k8s: [Rust Wasm + k8s 云原生探索](./wasm_k8s)
+- chatgpt_k8s: [ChatGPT 和 K8S 运维开发探索性实战](./chatgpt_k8s)

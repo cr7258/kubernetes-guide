@@ -230,6 +230,14 @@ PING 172.17.0.3 (172.17.0.3) 56(84) bytes of data.
 ip link set dev docker0 xdp obj xdp.bpf.o sec xdp verbose
 ```
 
+执行 ip link 命令可以看到 docker0 网卡上挂载了 XDP 程序。
+
+```bash
+3: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc noqueue state UP mode DEFAULT group default
+    link/ether 02:42:75:d8:d6:43 brd ff:ff:ff:ff:ff:ff
+    prog/xdp id 29200 tag d0ecfbec9b51b126 jited
+```
+
 此时再次访问容器，会发现无法通过 Ping 访问容器了，但是 curl 还是可以访问容器。
 
 ```bash
