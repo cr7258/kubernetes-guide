@@ -20,18 +20,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	internalapi "k8s.io/cri-api/pkg/apis"
 	"strings"
 	"time"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 
 	"k8s.io/component-base/logs/logreduction"
-	internalapi "k8s.io/cri-api/pkg/apis"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
-	"k8s.io/kubernetes/pkg/kubelet/cri/remote/util"
 	"k8s.io/kubernetes/pkg/probe/exec"
 	utilexec "k8s.io/utils/exec"
 )
@@ -50,18 +50,41 @@ const (
 )
 
 // NewRemoteRuntimeService creates a new internalapi.RuntimeService.
+//func NewRemoteRuntimeService(endpoint string, connectionTimeout time.Duration) (internalapi.RuntimeService, error) {
+//	klog.V(3).InfoS("Connecting to runtime service", "endpoint", endpoint)
+//	addr, dialer, err := util.GetAddressAndDialer(endpoint)
+//	if err != nil {
+//		return nil, err
+//	}
+//	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
+//	defer cancel()
+//
+//	conn, err := grpc.DialContext(ctx, addr, grpc.WithInsecure(), grpc.WithContextDialer(dialer), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)))
+//	if err != nil {
+//		klog.ErrorS(err, "Connect remote runtime failed", "address", addr)
+//		return nil, err
+//	}
+//
+//	return &remoteRuntimeService{
+//		timeout:       connectionTimeout,
+//		runtimeClient: runtimeapi.NewRuntimeServiceClient(conn),
+//		logReduction:  logreduction.NewLogReduction(identicalErrorDelay),
+//	}, nil
+//}
+
+// kubelet 中原本的 NewRemoteRuntimeService 函数只允许通过 unix 进行本地连接，我们这里修改成允许通过远程连接
 func NewRemoteRuntimeService(endpoint string, connectionTimeout time.Duration) (internalapi.RuntimeService, error) {
 	klog.V(3).InfoS("Connecting to runtime service", "endpoint", endpoint)
-	addr, dialer, err := util.GetAddressAndDialer(endpoint)
-	if err != nil {
-		return nil, err
+
+	gopts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, addr, grpc.WithInsecure(), grpc.WithContextDialer(dialer), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)))
+	conn, err := grpc.DialContext(ctx, endpoint, gopts...)
 	if err != nil {
-		klog.ErrorS(err, "Connect remote runtime failed", "address", addr)
+		klog.ErrorS(err, "Connect remote runtime failed", "address", endpoint)
 		return nil, err
 	}
 

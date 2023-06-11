@@ -671,3 +671,75 @@ kubectl get pod nginx-kubelet -o yaml -o jsonpath='{.metadata.uid}'
 临时的syncpod函数
 要处理的 Pod 名称是 nginx-kubelet
 ```
+
+### 连接 Containerd
+
+找一台新的虚拟机只安装 Containerd。
+
+```bash
+sudo apt install -y containerd
+```
+
+查看版本。
+
+```bash
+> containerd -v
+containerd github.com/containerd/containerd 1.6.12-0ubuntu1~20.04.1
+```
+
+Containerd 默认只能本地访问，编辑 Containerd 配置文件 /etc/containerd/config.toml，允许外部访问 Containerd。
+
+```bash
+# 先生成默认的配置文件
+mkdir -p /etc/containerd
+containerd config default > /etc/containerd/config.toml
+
+# 修改以下内容
+[grpc]
+tcp_address = "0.0.0.0:8989"
+
+[plugins]
+  [plugins."io.containerd.grpc.v1.cri"]
+    disable_tcp_service = false
+```
+
+修改完成后重启 Containerd。
+
+```bash
+systemctl restart containerd
+```
+
+验证能够成功连接 Containerd。
+
+```bash
+cd kubernetes-1.22.15/mykubelet/
+go run mytest/myclient/connect_containerd.go
+
+# 输出 CRI 版本号
+0.1.0
+```
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230611162829.png)
+
+
+Kubelet 对 CRI 的基本封装：pkg/kubelet/cri/remote/remote_runtime.go，进一步封装在 pkg/kubelet/kuberuntime/kuberuntime_manager.go。
+
+在 kubernetes-1.22.15/mykubelet/mycore 目录中添加 container_runtime.go, container_runtime_helper.go, container_runtime_labels.go, pleg.go 文件，用于模拟 PLEG 的功能，通过 CRI 接口监听 Containerd 上实际运行的容器，与缓存中的数据进行比较，如果不一致则更新 PodCache，触发执行 PodWorker 的 PodSyncFn 函数。
+在 kubernetes-1.22.15/mykubelet/mytest/myclient/pod_worker.go 中添加以下两行，开启 PLEG。
+
+```bash
+fmt.Println("开启 PLEG")
+mycore.StartPleg(pc.Clock, pc.InnerPodCache)
+```
+
+手动调用 PodWorkers。
+
+```bash
+cd kubernetes-1.22.15/mykubelet/
+go run mytest/myclient/pod_worker.go
+
+# 由于当前 Containerd 所在的虚拟机没有运行任何容器，因此 PLEG 还会触发 PodWorker 执行 SyncTerminatingFn 方法
+临时的syncpod函数
+要处理的 Pod 名称是 kube-proxy-27ckl
+临时的SyncTerminating函数
+```

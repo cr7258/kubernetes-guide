@@ -65,12 +65,17 @@ func main() {
 					},
 				},
 			}
+			// 设置本地缓存
 			pc.InnerPodCache.Set(types.UID(podid), staus, nil, time.Now())
 			writer.Write([]byte("设置成功"))
 		})
 
 		http.ListenAndServe(":8080", nil)
 	}()
+
+	fmt.Println("开启 PLEG")
+	mycore.StartPleg(pc.Clock, pc.InnerPodCache)
+
 	fmt.Println("开始监听")
 
 	for item := range pc.PodConfig.Updates() {
