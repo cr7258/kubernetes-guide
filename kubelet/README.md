@@ -743,3 +743,123 @@ go run mytest/myclient/pod_worker.go
 要处理的 Pod 名称是 kube-proxy-27ckl
 临时的SyncTerminating函数
 ```
+
+### 构建虚拟 Pod
+
+当 Pod 调度到我们阉割后的 Kubelet 后，我们可以不启动一个真正的 Pod（虚拟 Pod），而是执行自己的处理逻辑，执行完成后把结果上报给 Kubernetes。
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230611182154.png)
+
+## 第四章 Kubectl exec 原理
+
+基本走向：kubectl exec -> api server -> kubelet(pod所在的宿主机) -> 容器运行时
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230612071126.png)
+
+
+pkg/kubelet/server/server.go，第425行，这里面它启动了一个 go–restful 框架的路由配置。
+
+```go
+ws = new(restful.WebService)
+	ws.
+		Path("/exec")
+	ws.Route(ws.GET("/{podNamespace}/{podID}/{containerName}").
+		To(s.getExec).
+		Operation("getExec"))
+	ws.Route(ws.POST("/{podNamespace}/{podID}/{containerName}").
+		To(s.getExec).
+		Operation("getExec"))
+	ws.Route(ws.GET("/{podNamespace}/{podID}/{uid}/{containerName}").
+		To(s.getExec).
+		Operation("getExec"))
+	ws.Route(ws.POST("/{podNamespace}/{podID}/{uid}/{containerName}").
+		To(s.getExec).
+		Operation("getExec"))
+	s.restfulCont.Add(ws)
+```
+
+Kubelet 调用 CRI 接口获取容器运行时 exec 连接的地址，源码在 pkg/kubelet/cri/remote/remote_runtime.go。
+
+```go
+func (r *remoteRuntimeService) Exec(req *runtimeapi.ExecRequest) (*runtimeapi.ExecResponse, error) {
+	klog.V(10).InfoS("[RemoteRuntimeService] Exec", "timeout", r.timeout)
+	ctx, cancel := getContextWithTimeout(r.timeout)
+	defer cancel()
+
+	resp, err := r.runtimeClient.Exec(ctx, req)
+	if err != nil {
+		klog.ErrorS(err, "Exec cmd from runtime service failed", "containerID", req.ContainerId, "cmd", req.Cmd)
+		return nil, err
+	}
+	klog.V(10).InfoS("[RemoteRuntimeService] Exec Response")
+
+	if resp.Url == "" {
+		errorMessage := "URL is not set"
+		err := errors.New(errorMessage)
+		klog.ErrorS(err, "Exec failed")
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+```
+
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230612072002.png)
+
+API Server 获取 Container 地址，并反代 Kubelet 的源代码在 pkg/registry/core/pod/rest/subresources.go。
+
+```go
+// Connect returns a handler for the pod portforward proxy
+func (r *PortForwardREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
+	portForwardOpts, ok := opts.(*api.PodPortForwardOptions)
+	if !ok {
+		return nil, fmt.Errorf("invalid options object: %#v", opts)
+	}
+	// 返回 Container 运行时的地址
+	location, transport, err := pod.PortForwardLocation(ctx, r.Store, r.KubeletConn, name, portForwardOpts)
+	if err != nil {
+		return nil, err
+	}
+	return newThrottledUpgradeAwareProxyHandler(location, transport, false, true, true, responder), nil
+}
+
+// 代理 Kubelet
+func newThrottledUpgradeAwareProxyHandler(location *url.URL, transport http.RoundTripper, wrapTransport, upgradeRequired, interceptRedirects bool, responder rest.Responder) *proxy.UpgradeAwareHandler {
+	handler := proxy.NewUpgradeAwareHandler(location, transport, wrapTransport, upgradeRequired, proxy.NewErrorResponder(responder))
+	handler.InterceptRedirects = interceptRedirects && utilfeature.DefaultFeatureGate.Enabled(genericfeatures.StreamingProxyRedirects)
+	handler.RequireSameHostRedirects = utilfeature.DefaultFeatureGate.Enabled(genericfeatures.ValidateProxyRedirects)
+	handler.MaxBytesPerSec = capabilities.Get().PerConnectionBandwidthLimitBytesPerSec
+	return handler
+}
+```
+
+在远程 Containerd 上启动一个容器：
+
+```bash
+ctr image pull docker.io/library/nginx:latest
+ctr run -d docker.io/library/nginx:latest my-nginx
+
+# 查看容器 ID
+ctr containers info my-nginx | grep ID
+```
+
+修改 mycore/exec_helper.go 文件中的远程的 runtime 地址以及要连接的容器 ID，然后启动 kubelet 模拟 exec 服务端：
+
+```bash
+cd kubernetes-1.22.15/mykubelet/
+go run mytest/myclient/exec.go
+```
+
+启动假的 API Server：
+
+```bash
+go run mytest/myclient/fakeapiserver.go
+```
+
+启动客户端执行 exec：
+
+```bash
+go run mytest/myclient/exec_client.go
+```
