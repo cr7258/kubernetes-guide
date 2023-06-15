@@ -1,26 +1,28 @@
 * [环境准备](#环境准备)
-   * [创建 Linux 虚拟机](#创建-linux-虚拟机)
-   * [使用 Kind 创建 Kubernetes 集群](#使用-kind-创建-kubernetes-集群)
+    * [创建 Linux 虚拟机](#创建-linux-虚拟机)
+    * [使用 Kind 创建 Kubernetes 集群](#使用-kind-创建-kubernetes-集群)
 * [第一章 Kubelet 快速魔改，本地启动](#第一章-kubelet-快速魔改本地启动)
-   * [修改 Kubelet 代码](#修改-kubelet-代码)
-   * [启动 Kubelet](#启动-kubelet)
-   * [节点 Ready 状态的原理](#节点-ready-状态的原理)
-   * [模拟 Kubelet Lease 续期](#模拟-kubelet-lease-续期)
+    * [修改 Kubelet 代码](#修改-kubelet-代码)
+    * [启动 Kubelet](#启动-kubelet)
+    * [节点 Ready 状态的原理](#节点-ready-状态的原理)
+    * [模拟 Kubelet Lease 续期](#模拟-kubelet-lease-续期)
 * [第二章 代码实现 Kubelet 注册(TLS Bootstrap)](#第二章-代码实现-kubelet-注册tls-bootstrap)
-   * [手工实现 CSR 请求和获取证书](#手工实现-csr-请求和获取证书)
-      * [1 创建 CSR 文件](#1-创建-csr-文件)
-      * [2 创建 CertificateSigningRequest 对象](#2-创建-certificatesigningrequest-对象)
-      * [3 手动批复](#3-手动批复)
-      * [4 获取证书内容](#4-获取证书内容)
-   * [代码实现 CSR 请求](#代码实现-csr-请求)
-   * [手撸 Kubelet 之创建节点](#手撸-kubelet-之创建节点)
+    * [手工实现 CSR 请求和获取证书](#手工实现-csr-请求和获取证书)
+        * [1 创建 CSR 文件](#1-创建-csr-文件)
+        * [2 创建 CertificateSigningRequest 对象](#2-创建-certificatesigningrequest-对象)
+        * [3 手动批复](#3-手动批复)
+        * [4 获取证书内容](#4-获取证书内容)
+    * [代码实现 CSR 请求](#代码实现-csr-请求)
+    * [手撸 Kubelet 之创建节点](#手撸-kubelet-之创建节点)
 * [第三章 Pod 状态和监听（主模块源码学习）](#第三章-pod-状态和监听主模块源码学习)
-   * [手动调用 PLEG](#手动调用-pleg)
-   * [SyncLoop](#syncloop)
-   * [手工调用 PodManager，创建一个假的静态 Pod](#手工调用-podmanager创建一个假的静态-pod)
-   * [监听 Pod 加入缓存](#监听-pod-加入缓存)
-   * [PodWorkers](#podworkers)
-
+    * [手动调用 PLEG](#手动调用-pleg)
+    * [SyncLoop](#syncloop)
+    * [手工调用 PodManager，创建一个假的静态 Pod](#手工调用-podmanager创建一个假的静态-pod)
+    * [监听 Pod 加入缓存](#监听-pod-加入缓存)
+    * [PodWorkers](#podworkers)
+    * [连接 Containerd](#连接-containerd)
+    * [构建虚拟 Pod](#构建虚拟-pod)
+* [第四章 Kubectl exec 原理](#第四章-kubectl-exec-原理)
 
 ## 环境准备
 ### 创建 Linux 虚拟机
@@ -754,8 +756,7 @@ go run mytest/myclient/pod_worker.go
 
 基本走向：kubectl exec -> api server -> kubelet(pod所在的宿主机) -> 容器运行时
 
-![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230612071126.png)
-
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230612082036.png)
 
 pkg/kubelet/server/server.go，第425行，这里面它启动了一个 go–restful 框架的路由配置。
 
@@ -805,7 +806,6 @@ func (r *remoteRuntimeService) Exec(req *runtimeapi.ExecRequest) (*runtimeapi.Ex
 
 ```
 
-
 ![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230612072002.png)
 
 API Server 获取 Container 地址，并反代 Kubelet 的源代码在 pkg/registry/core/pod/rest/subresources.go。
@@ -835,14 +835,42 @@ func newThrottledUpgradeAwareProxyHandler(location *url.URL, transport http.Roun
 }
 ```
 
-在远程 Containerd 上启动一个容器：
+进入前面用 Kind 创建的 Kubernetes 集群的节点中，修改 Containerd 的配置。
 
 ```bash
-ctr image pull docker.io/library/nginx:latest
-ctr run -d docker.io/library/nginx:latest my-nginx
+docker exec -it kubelet-demo-control-plane bash
+```
 
-# 查看容器 ID
-ctr containers info my-nginx | grep ID
+在 /etc/containerd/config.toml 文件中添加以下内容。连接容器时，Kubelet 首先会调用 CRI 接口连接 Containerd 的 8989 端口，协商一个随机的端口，然后再通过 gRPC 连接这个随机与容器进行交互。
+修改后的完整的配置文件可以参考 containerd/config.toml。
+
+```yaml
+  [grpc]
+    address = "/run/containerd/containerd.sock"
+    gid = 0
+    max_recv_message_size = 16777216
+    max_send_message_size = 16777216
+    tcp_address = "0.0.0.0:8989"
+    tcp_tls_ca = ""
+    tcp_tls_cert = ""
+    tcp_tls_key = ""
+    uid = 0
+
+  [plugins."io.containerd.grpc.v1.cri"]
+    restrict_oom_score_adj = false
+    disable_tcp_service = false
+    stream_server_address = "0.0.0.0"
+    # stream_server_port = "0" 
+```
+
+在 Kubernetes 集群中启动一个 Pod，然后获取 Container ID。
+
+```bash
+kubectl run nettool --image=cr7258/nettool:v1
+kubectl get pod nettool -o yaml | grep containerID
+
+# 输出
+  - containerID: containerd://afbf835393c303028577a67cc047f10b7d39c64d1161d6d372ce5c3c772dd2e2
 ```
 
 修改 mycore/exec_helper.go 文件中的远程的 runtime 地址以及要连接的容器 ID，然后启动 kubelet 模拟 exec 服务端：
@@ -850,16 +878,49 @@ ctr containers info my-nginx | grep ID
 ```bash
 cd kubernetes-1.22.15/mykubelet/
 go run mytest/myclient/exec.go
+
+# 启动时输出
+I0615 20:40:43.686785   34254 exec.go:32] 启动 kubelet exec 服务，监听9090端口
+
+# 客户端连接后输出
+I0615 20:40:52.741413   34254 exec_helper.go:95] 得到的URL是：http://[::]:40147/exec/RbNWiKkV
+I0615 20:40:52.741430   34254 exec_helper.go:97] 修改过后的URL是：http://172.19.0.2:40147/exec/RbNWiKkV
 ```
 
 启动假的 API Server：
 
 ```bash
 go run mytest/myclient/fakeapiserver.go
+
+# 输出
+2023/06/15 20:17:29 启动假的apiserver
 ```
 
 启动客户端执行 exec：
 
 ```bash
 go run mytest/myclient/exec_client.go
+
+# 输出，打印了在 exec_helper 中设置的 ls 命令
+bin
+dev
+docker-entrypoint.d
+docker-entrypoint.sh
+entrypoint.sh
+etc
+home
+lib
+media
+mnt
+opt
+proc
+product_uuid
+root
+run
+sbin
+srv
+sys
+tmp
+usr
+var
 ```

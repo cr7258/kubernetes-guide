@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	urlStr := "http://localhost:9090/exec/default/mypod/mycontainer" // 反代到 Kubelet
+	urlStr := "http://localhost:9090/exec/default/mypod/mycontainer" // 反代到 Kubelet，这里 URL 后缀可以随便写，我们把 container 的 ID 在 exec 方法里写死了
 	urlObj, err := url.Parse(urlStr)
 	if err != nil {
 		panic(err)

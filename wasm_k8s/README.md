@@ -169,8 +169,6 @@ mv bin/buildctl /usr/local/bin/
 mv bin/buildkitd /usr/local/bin/
 ```
 
-```bash
-
 在 target/wasm32-wasi/release/ 文件夹下创建一个名为 Dockerfile 的文件，内容如下:
 
 ```Dockerfile

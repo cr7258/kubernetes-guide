@@ -3,6 +3,7 @@ package mycore
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/emicklei/go-restful"
 	"google.golang.org/grpc"
@@ -41,14 +42,14 @@ func GetExec(request *restful.Request, response *restful.Response) {
 	proxyStream(response.ResponseWriter, request.Request, url)
 }
 
-const RemoteRuntimeAddress = "192.168.2.150:8989" // 修改远程的 runtime 地址
+const RemoteRuntimeAddress = "172.19.0.2" // 修改远程的 runtime 地址
 func initRuntimeClient() runtimeapi.RuntimeServiceClient {
 	gopts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, RemoteRuntimeAddress, gopts...)
+	conn, err := grpc.DialContext(ctx, RemoteRuntimeAddress+":8989", gopts...)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -80,7 +81,7 @@ func runtimeExec(req *runtimeapi.ExecRequest) (*runtimeapi.ExecResponse, error) 
 }
 func GetUrl() (*url.URL, error) {
 	req := &runtimeapi.ExecRequest{
-		ContainerId: "my-nginx", // 修改要连接的容器 ID
+		ContainerId: "afbf835393c303028577a67cc047f10b7d39c64d1161d6d372ce5c3c772dd2e2", // 修改要连接的容器 ID
 		Cmd:         []string{"ls"},
 		Tty:         false,
 		Stdin:       true,
@@ -92,5 +93,7 @@ func GetUrl() (*url.URL, error) {
 		return nil, err
 	}
 	klog.Info("得到的URL是：", resp.Url)
+	resp.Url = strings.Replace(resp.Url, "[::]", RemoteRuntimeAddress, -1)
+	klog.Info("修改过后的URL是：", resp.Url)
 	return url.Parse(resp.Url)
 }
