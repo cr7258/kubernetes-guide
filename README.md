@@ -18,3 +18,4 @@
 - embedding: [ChatGPT 和 K8S 实战之:Embeddings 篇](./embedding)
 - wasm_k8s: [Rust Wasm + k8s 云原生探索](./wasm_k8s)
 - chatgpt_k8s: [ChatGPT 和 K8S 运维开发探索性实战](./chatgpt_k8s)
+- envoy: [Istio 微服务实战进阶之 Envoy 篇](./envoy)
