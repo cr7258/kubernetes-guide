@@ -1,1 +1,2 @@
 envoy/istio-1.18.0/bin/istioctl filter=lfs diff=lfs merge=lfs -text
+istioctl filter=lfs diff=lfs merge=lfs -text
