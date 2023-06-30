@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp
+  labels:
+    app: myapp
+spec:
+  restartPolicy: Never
+  initContainers:
+    - name: init
+      image: bgiddings/iptables
+      imagePullPolicy: IfNotPresent
+      command: [ "sh","-c" ]
+      args: [ "iptables -t nat -A PREROUTING ! -d 127.0.0.1/32  -p tcp --dport 80 -j REDIRECT --to-ports 15006" ]
+      securityContext:
+        capabilities:
+          add:
+            - NET_ADMIN
+  containers:
+    - name: nginx
+      image: nginx:1.18-alpine
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 80
+    - name: envoyproxy
+      image: envoyproxy/envoy-alpine:v1.21.0
+      imagePullPolicy: IfNotPresent
+      volumeMounts:
+        - name: envoyconfig
+          mountPath: /etc/envoy/
+  volumes:
+    - name: envoyconfig
+      configMap:
+        defaultMode: 0655
+        name: envoyconfig
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: myapp

@@ -15,6 +15,11 @@
         * [Network filters](#network-filters)
         * [HTTP filters](#http-filters)
     * [第四章 Envoy 流量拦截](#第四章-envoy-流量拦截)
+        * [入口流量拦截](#入口流量拦截)
+        * [出口流量拦截](#出口流量拦截)
+        * [Istio 中出口流量管理](#istio-中出口流量管理)
+            * [ALLOW_ANY 模式](#allow_any-模式)
+            * [REGISTRY_ONLY 模式](#registry_only-模式)
 
 # Istio 微服务实战进阶之 Envoy 篇 
 
@@ -311,9 +316,14 @@ v2
 
 Envoy 有 Listener filters, Network filters, HTTP filters 等多种过滤器，具体参考：https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/filter/filter
 
+
 ### Listener filters
 
-Listener filters 用于管理连接的元数据，例如可以用来获取 HTTP/1.x, HTTP/2, TLS 的连接情况。
+Envoy 会在 Network filters 之前处理 Listener filters。我们可以在 Listener filters 中操作连接元数据，通常是为了影响后来的过滤器或集群如何处理连接。
+Listener filters 对新接受的套接字进行操作，并可以停止或随后继续执行进一步的过滤器。Listener filters 的顺序很重要，因为 Envoy 在 Listener 接受套接字后，在创建连接前，会按顺序处理这些过滤器。
+我们可以使用 Listener filters 的结果来进行过滤器匹配，并选择一个合适的 Network filters Chains。例如，我们可以使用 HTTP Inspector Listener filters 来确定 HTTP 协议（HTTP/1.1 或 HTTP/2）。基于这个结果，我们就可以选择并运行不同的 Network filters Chains。
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230629221822.png)
 
 以下配置设置一个 HTTP Inspector listener filter 来获取 HTTP/1.x, HTTP/2 的连接情况。
 
@@ -526,3 +536,556 @@ v1
 
 ## 第四章 Envoy 流量拦截
 
+### 入口流量拦截
+
+将 Envoy 作为 sidecar 容器，在 Init Container 启动时设置 iptables 规则将所有发往业务容器的流量都先转发到 Envoy 的 15006 端口，经过 Envoy 处理后（本例中添加 HTTP Header），然后再由 Envoy 转发到业务容器的 80 端口。
+
+```bash
+iptables -t nat -A PREROUTING ! -d 127.0.0.1/32  -p tcp --dport 80 -j REDIRECT --to-ports 15006
+```
+
+部署带有 Envoy sidecar 的 Pod。
+
+```bash
+kubectl apply -f envoy/intercept/inbound
+```
+
+创建一个客户端 Pod。
+
+```bash
+kubectl run nettool --image=cr7258/nettool:v1
+```
+
+访问业务 Pod，可以看到返回结果中添加了 Envoy 的 Header。
+
+```bash
+kubectl exec -it nettool -- curl myapp -i
+
+# 返回结果
+HTTP/1.1 200 OK
+server: envoy
+date: Wed, 28 Jun 2023 23:32:34 GMT
+content-type: text/html
+content-length: 612
+last-modified: Thu, 29 Oct 2020 15:23:06 GMT
+etag: "5f9ade5a-264"
+accept-ranges: bytes
+x-envoy-upstream-service-time: 0
+myname: chengzw
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+```
+
+### 出口流量拦截
+
+参考资料：
+- [理解 Istio Service Mesh 中 Envoy Sidecar 代理的路由转发](https://cloudnative.to/blog/envoy-sidecar-routing-of-istio-service-mesh-deep-dive/)
+
+部署应用服务，将作为出口流量的目标。
+
+```bash
+kubectl apply -f envoy/intercept/outbound/myngxsvc.yaml
+```
+
+获取 Service IP 地址。
+
+```bash
+> kubectl get svc myngx                                         
+NAME    TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+myngx   ClusterIP   100.70.238.78   <none>        80/TCP    27s
+```
+
+将 Service IP 配置在 envoy 配置文件中，[Envoy 配置文件](envoy/intercept/outbound/cm.yaml)中有几个参数说明如下：
+- **UseOriginalDst**：从配置中可以看出 useOriginalDst 配置指定为 true，这是一个布尔值，缺省为 false，使用 iptables 重定向连接时，proxy 接收的端口可能与原始目的地址的端口不一样，如此处 proxy 接收的端口为 15001，而原始目的地端口为 9080。当此标志设置为 true 时，Listener 将连接重定向到与原始目的地址关联的 Listener，此处为 100.70.238.78:80。如果没有与原始目的地址关联的 Listener，则连接由接收它的 Listener 处理，即该 virtual Listener，经过 envoy.tcp_proxy 过滤器处理转发给 BlackHoleCluster，这个 Cluster 的作用正如它的名字，当 Envoy 找不到匹配的虚拟监听器时，就会将请求发送给它，将数据包丢弃。
+- **bindToPort**：注意其中有一个 bindToPort 的配置，其值为 false，该配置的缺省值为 true，表示将 Listener 绑定到端口上，此处设置为 false 则该 Listener 只能处理其他 Listener 转移过来的流量，100.70.238.78_80 Listener 本身并不监听这个 IP 和 端口，而是将流量转发给实际的后端。
+
+```bash
+kubectl apply -f envoy/intercept/outbound/cm.yaml
+kubectl apply -f envoy/intercept/outbound/pod.yaml
+```
+
+```bash
+kubectl exec -it myapp -- sh
+
+/ # curl myngx -I
+HTTP/1.1 200 OK
+server: envoy
+date: Fri, 30 Jun 2023 11:12:11 GMT
+content-type: text/html
+content-length: 615
+last-modified: Tue, 13 Jun 2023 15:08:10 GMT
+etag: "6488865a-267"
+accept-ranges: bytes
+x-envoy-upstream-service-time: 0
+myname: chengzw
+
+# 此时 Envoy 日志输出
+{"filter":"HttpConnectionManager","upstream":"100.70.238.78:80"}
+
+
+/ # curl baidu.com -I
+curl: (56) Recv failure: Connection reset by peer
+
+# 此时 Envoy 日志输出
+{"upstream":null,"filter":"BlockAllCluster"}
+```
+
+### Istio 中出口流量管理
+
+参考链接：
+- [Monitoring Egress Traffic](https://istiobyexample.dev/monitoring-egress-traffic/)
+- [Monitoring Blocked and Passthrough External Service Traffic](https://istio.io/latest/blog/2019/monitoring-external-service-traffic/#what-are-blackhole-and-passthrough-clusters)
+- [Accessing External Services](https://istio.io/latest/docs/tasks/traffic-management/egress/egress-control/)
+
+默认情况下，在 Istio 中的 Pod 可以直接访问网格外的服务，如果想要对出口流量进行管理，可以修改 `meshConfig.outboundTrafficPolicy.mode` 为 `REGISTRY_ONLY`，表示只允许访问注册到 Istio 中的外部服务。
+外部服务可以通过创建 ServiceEntry 对象来注册到服务网格中。
+
+#### ALLOW_ANY 模式
+
+当使用 ALLOW_ANY 模式时，Istio 使用名为 PassthroughCluster 的 cluster 处理出口流量，所有出访流量直接转发。
+
+```bash
+istioctl proxy-config listeners nettool --port 15001 -o yaml
+```
+
+```bash
+- address:
+    socketAddress:
+      address: 0.0.0.0
+      portValue: 15001
+  filterChains:
+  - filterChainMatch:
+      destinationPort: 15001
+    filters:
+    - name: istio.stats
+      typedConfig:
+        '@type': type.googleapis.com/stats.PluginConfig
+    - name: envoy.filters.network.tcp_proxy
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+        cluster: BlackHoleCluster
+        statPrefix: BlackHoleCluster
+    name: virtualOutbound-blackhole
+  - filters:
+    - name: istio.stats
+      typedConfig:
+        '@type': type.googleapis.com/stats.PluginConfig
+    - name: envoy.filters.network.tcp_proxy
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+        cluster: PassthroughCluster
+        statPrefix: PassthroughCluster
+    name: virtualOutbound-catchall-tcp
+  name: virtualOutbound
+  trafficDirection: OUTBOUND
+  useOriginalDst: true
+```
+
+```bash
+istioctl proxy-config cluster nettool --fqdn PassthroughCluster -o yaml
+```
+
+```yaml
+- circuitBreakers:
+    thresholds:
+    - maxConnections: 4294967295
+      maxPendingRequests: 4294967295
+      maxRequests: 4294967295
+      maxRetries: 4294967295
+      trackRemaining: true
+  connectTimeout: 10s
+  lbPolicy: CLUSTER_PROVIDED
+  name: InboundPassthroughClusterIpv4
+  type: ORIGINAL_DST
+  typedExtensionProtocolOptions:
+    envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+      '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+      commonHttpProtocolOptions:
+        idleTimeout: 300s
+      useDownstreamProtocolConfig:
+        http2ProtocolOptions: {}
+        httpProtocolOptions: {}
+  upstreamBindConfig:
+    sourceAddress:
+      address: 127.0.0.6
+      portValue: 0
+- circuitBreakers:
+    thresholds:
+    - maxConnections: 4294967295
+      maxPendingRequests: 4294967295
+      maxRequests: 4294967295
+      maxRetries: 4294967295
+      trackRemaining: true
+  connectTimeout: 10s
+  filters:
+  - name: istio.metadata_exchange
+    typedConfig:
+      '@type': type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+      protocol: istio-peer-exchange
+  lbPolicy: CLUSTER_PROVIDED
+  name: PassthroughCluster
+  type: ORIGINAL_DST
+  typedExtensionProtocolOptions:
+    envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+      '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+      commonHttpProtocolOptions:
+        idleTimeout: 300s
+      useDownstreamProtocolConfig:
+        http2ProtocolOptions: {}
+        httpProtocolOptions: {}
+```
+
+#### REGISTRY_ONLY 模式
+
+```bash
+istioctl install -f istio/outbound/install.yaml
+```
+
+将 default Namespace 标记为自动注入 Envoy，并创建一个测试 Pod。 
+
+```bash
+kubectl label namespace default istio-injection=enabled
+kubectl run nettool --image=cr7258/nettool:v1
+```
+
+通过 Pod nettool 尝试访问 baidu.com，此时无法访问。
+
+```bash
+kubectl exec -it nettool -- curl baidu.com
+
+# 返回结果
+HTTP/1.1 502 Bad Gateway
+date: Thu, 29 Jun 2023 02:33:27 GMT
+server: envoy
+transfer-encoding: chunked
+```
+
+创建 ServiceEntry 对象，将 baidu.com 注册到服务网格中。
+
+```bash
+kubectl apply -f istio/outbound/serviceentry.yaml
+```
+
+此时 nettool 就可以成功访问 baidu.com 了。
+
+```bash
+kubectl exec -it nettool -- curl baidu.com -I
+
+# 返回结果
+HTTP/1.1 200 OK
+date: Thu, 29 Jun 2023 02:34:09 GMT
+server: envoy
+last-modified: Tue, 12 Jan 2010 13:48:00 GMT
+etag: "51-47cf7e6ee8400"
+accept-ranges: bytes
+content-length: 81
+cache-control: max-age=86400
+expires: Fri, 30 Jun 2023 02:34:09 GMT
+content-type: text/html
+x-envoy-upstream-service-time: 81
+```
+
+获取 istio-proxy sidecar 容器的配置。
+
+```bash
+kubectl exec -it nettool -c istio-proxy -- curl localhost:15000/config_dump
+```
+
+查看 Listener 15001 的配置，当有原始目的地址关联的 Listener 匹配时，则交给它处理。
+如果没有与原始目的地址关联的 Listener，则连接由接收它的 Listener 处理，即将流量转发到 BlackHoleCluster cluster，最终丢弃流量。
+
+```bash
+istioctl proxy-config listeners nettool --port 15001 -o yaml
+```
+
+```yaml
+- address:
+    socketAddress:
+      address: 0.0.0.0
+      portValue: 15001
+  filterChains:
+  - filterChainMatch:
+      destinationPort: 15001
+    filters:
+    - name: istio.stats
+      typedConfig:
+        '@type': type.googleapis.com/stats.PluginConfig
+    - name: envoy.filters.network.tcp_proxy
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+        cluster: BlackHoleCluster
+        statPrefix: BlackHoleCluster
+    name: virtualOutbound-blackhole
+  - filters:
+    - name: istio.stats
+      typedConfig:
+        '@type': type.googleapis.com/stats.PluginConfig
+    - name: envoy.filters.network.tcp_proxy
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+        cluster: BlackHoleCluster
+        statPrefix: BlackHoleCluster
+    name: virtualOutbound-catchall-tcp
+  name: virtualOutbound
+  trafficDirection: OUTBOUND
+  useOriginalDst: true
+```
+
+查看监听 0.0.0.0:80 的 Listener 配置。
+
+```yaml
+- address:
+    socketAddress:
+      address: 0.0.0.0
+      portValue: 80
+  bindToPort: false
+  continueOnListenerFiltersTimeout: true
+  defaultFilterChain:
+    filterChainMatch: {}
+    filters:
+    - name: istio.stats
+      typedConfig:
+        '@type': type.googleapis.com/stats.PluginConfig
+    - name: envoy.filters.network.tcp_proxy
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+        cluster: BlackHoleCluster
+        statPrefix: BlackHoleCluster
+    name: PassthroughFilterChain
+  filterChains:
+  - filterChainMatch:
+      applicationProtocols:
+      - http/1.1
+      - h2c
+      transportProtocol: raw_buffer
+    filters:
+    - name: envoy.filters.network.http_connection_manager
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+        httpFilters:
+        - name: istio.metadata_exchange
+          typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            config:
+              configuration:
+                '@type': type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              vmConfig:
+                code:
+                  local:
+                    inlineString: envoy.wasm.metadata_exchange
+                runtime: envoy.wasm.runtime.null
+        - name: envoy.filters.http.grpc_stats
+          typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+            emitFilterState: true
+            statsForAllMethods: false
+        - name: istio.alpn
+          typedConfig:
+            '@type': type.googleapis.com/istio.envoy.config.filter.http.alpn.v2alpha1.FilterConfig
+            alpnOverride:
+            - alpnOverride:
+              - istio-http/1.0
+              - istio
+              - http/1.0
+            - alpnOverride:
+              - istio-http/1.1
+              - istio
+              - http/1.1
+              upstreamProtocol: HTTP11
+            - alpnOverride:
+              - istio-h2
+              - istio
+              - h2
+              upstreamProtocol: HTTP2
+        - name: envoy.filters.http.fault
+          typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault
+        - name: envoy.filters.http.cors
+          typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+        - name: istio.stats
+          typedConfig:
+            '@type': type.googleapis.com/stats.PluginConfig
+        - name: envoy.filters.http.router
+          typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+        normalizePath: true
+        pathWithEscapedSlashesAction: KEEP_UNCHANGED
+        rds:
+          configSource:
+            ads: {}
+            initialFetchTimeout: 0s
+            resourceApiVersion: V3
+          routeConfigName: "80"  # 跳转到名字为 80 的 dynamic_route_configs
+        requestIdExtension:
+          typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.request_id.uuid.v3.UuidRequestIdConfig
+            useRequestIdForTraceSampling: true
+        statPrefix: outbound_0.0.0.0_80
+        streamIdleTimeout: 0s
+        tracing:
+          clientSampling:
+            value: 100
+          customTags:
+          - metadata:
+              kind:
+                request: {}
+              metadataKey:
+                key: envoy.filters.http.rbac
+                path:
+                - key: istio_dry_run_allow_shadow_effective_policy_id
+            tag: istio.authorization.dry_run.allow_policy.name
+          - metadata:
+              kind:
+                request: {}
+              metadataKey:
+                key: envoy.filters.http.rbac
+                path:
+                - key: istio_dry_run_allow_shadow_engine_result
+            tag: istio.authorization.dry_run.allow_policy.result
+          - metadata:
+              kind:
+                request: {}
+              metadataKey:
+                key: envoy.filters.http.rbac
+                path:
+                - key: istio_dry_run_deny_shadow_effective_policy_id
+            tag: istio.authorization.dry_run.deny_policy.name
+          - metadata:
+              kind:
+                request: {}
+              metadataKey:
+                key: envoy.filters.http.rbac
+                path:
+                - key: istio_dry_run_deny_shadow_engine_result
+            tag: istio.authorization.dry_run.deny_policy.result
+          - literal:
+              value: latest
+            tag: istio.canonical_revision
+          - literal:
+              value: nettool
+            tag: istio.canonical_service
+          - literal:
+              value: cluster.local
+            tag: istio.mesh_id
+          - literal:
+              value: default
+            tag: istio.namespace
+          overallSampling:
+            value: 100
+          randomSampling:
+            value: 1
+        upgradeConfigs:
+        - upgradeType: websocket
+        useRemoteAddress: false
+  listenerFilters:
+  - name: envoy.filters.listener.tls_inspector
+    typedConfig:
+      '@type': type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+  - name: envoy.filters.listener.http_inspector
+    typedConfig:
+      '@type': type.googleapis.com/envoy.extensions.filters.listener.http_inspector.v3.HttpInspector
+  listenerFiltersTimeout: 0s
+  name: 0.0.0.0_80
+  trafficDirection: OUTBOUND
+```
+
+查看 Route 配置，因为我们配置了 baidu.co, 所以会有一个对应的 route。
+
+```bash
+istioctl proxy-config routes nettool --name 80 -o yaml
+```
+
+```yaml
+
+- ignorePortInHostMatching: true
+  maxDirectResponseBodySizeBytes: 1048576
+  name: "80"
+  validateClusters: false
+  virtualHosts:
+  - domains:
+    - baidu.com
+    includeRequestAttemptCount: true
+    name: baidu.com:80
+    routes:
+    - decorator:
+        operation: baidu.com:80/*
+      match:
+        prefix: /
+      name: default
+      route:
+        cluster: outbound|80||baidu.com
+        maxGrpcTimeout: 0s
+        retryPolicy:
+          hostSelectionRetryMaxAttempts: "5"
+          numRetries: 2
+          retriableStatusCodes:
+          - 503
+          retryHostPredicate:
+          - name: envoy.retry_host_predicates.previous_hosts
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.retry.host.previous_hosts.v3.PreviousHostsPredicate
+          retryOn: connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes
+        timeout: 0s
+  - domains:
+    - ingressgateway.istio-system.svc.cluster.local
+    - ingressgateway.istio-system
+    - ingressgateway.istio-system.svc
+    - 10.96.157.119
+    includeRequestAttemptCount: true
+    name: ingressgateway.istio-system.svc.cluster.local:80
+    routes:
+    - decorator:
+        operation: ingressgateway.istio-system.svc.cluster.local:80/*
+      match:
+        prefix: /
+      name: default
+      route:
+        cluster: outbound|80||ingressgateway.istio-system.svc.cluster.local
+        maxGrpcTimeout: 0s
+        retryPolicy:
+          hostSelectionRetryMaxAttempts: "5"
+          numRetries: 2
+          retriableStatusCodes:
+          - 503
+          retryHostPredicate:
+          - name: envoy.retry_host_predicates.previous_hosts
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.retry.host.previous_hosts.v3.PreviousHostsPredicate
+          retryOn: connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes
+        timeout: 0s
+  - domains:
+    - '*'
+    includeRequestAttemptCount: true
+    name: block_all
+    routes:
+    - directResponse:
+        status: 502
+      match:
+        prefix: /
+      name: block_all
+```
