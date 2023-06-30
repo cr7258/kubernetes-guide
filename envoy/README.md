@@ -761,6 +761,16 @@ istioctl proxy-config cluster nettool --fqdn PassthroughCluster -o yaml
 
 #### REGISTRY_ONLY 模式
 
+REGISTRY_ONLY 模式在 Istio 配置文件中指定：
+
+```yaml
+meshConfig:
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
+```
+
+安装 Istio。
+
 ```bash
 istioctl install -f istio/outbound/install.yaml
 ```
