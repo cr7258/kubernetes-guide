@@ -303,7 +303,7 @@ go get github.com/cilium/ebpf/cmd/bpf2go
 go install github.com/cilium/ebpf/cmd/bpf2go
 ```
 
-安装依赖： 
+安装依赖，参考资料：https://www.ghl.name/archives/how-to-fix-asm-types-h-no-found.html
 
 ```bash
 apt install -y libelf-dev llvm
@@ -316,8 +316,11 @@ sudo ./llvm.sh 14 all
 # 上一步安装过程中会安装无用的 clang-11 的包，这一条命令是用来卸载它们的
 sudo apt autoremove
 
-# 设置软连接
-ln -s /usr/bin/clang-14 /usr/bin/clang
+# 设置 clang 的默认版本为 clang-14
+update-alternatives --install /usr/bin/llc llc /usr/bin/llc-14 100
+update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 100
+
+apt install -y gcc-multilib
 ```
 
 查看 clang 版本：
@@ -344,4 +347,13 @@ Selected multilib: .;@m64
 
 ```bash
 make
+
+# 输出
+go generate ./...
+Compiled /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfel.o
+Stripped /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfel.o
+Wrote /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfel.go
+Compiled /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.o
+Stripped /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.o
+Wrote /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.go
 ```
