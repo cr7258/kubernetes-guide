@@ -293,3 +293,55 @@ ping-969242  [000] d.s11 1732115.232141: bpf_trace_printk: Drop ICMP packets
 ```bash
 ip link set dev docker0 xdp off
 ```
+
+## 用户态开发 cilium/ebpf 入门
+
+安装 bpf2go 工具，执行 go install 后 bpf2go 会安装到 $GOPATH/bin 目录下。
+
+```bash
+go get github.com/cilium/ebpf/cmd/bpf2go
+go install github.com/cilium/ebpf/cmd/bpf2go
+```
+
+安装依赖： 
+
+```bash
+apt install -y libelf-dev llvm
+
+# 安装 clang-14
+apt install -y lsb-release wget software-properties-common gnupg
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 14 all
+# 上一步安装过程中会安装无用的 clang-11 的包，这一条命令是用来卸载它们的
+sudo apt autoremove
+
+# 设置软连接
+ln -s /usr/bin/clang-14 /usr/bin/clang
+```
+
+查看 clang 版本：
+
+```bash
+root@bcc-demo:/Users/I576375/Code/kubernetes-guide/ebpf/goebpf# clang -v
+Ubuntu clang version 14.0.6
+Target: aarch64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /usr/bin
+Found candidate GCC installation: /usr/bin/../lib/gcc/aarch64-linux-gnu/9
+Selected GCC installation: /usr/bin/../lib/gcc/aarch64-linux-gnu/9
+Candidate multilib: .;@m64
+Selected multilib: .;@m64
+```
+
+在 goebpf/cebpf/tc 目录中的 tc_write.bpf.c 文件是 eBPF 程序，doc.go 中 bpf2go 命令根据 tc_write.bpf.c 文件生成相关的 o 文件和 go 文件。
+
+```bash
+//go:generate bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS tc_write tc_write.bpf.c -- -I $BPF_HEADERS
+```
+
+在项目根目录执行 make 命令生成文件。
+
+```bash
+make
+```
