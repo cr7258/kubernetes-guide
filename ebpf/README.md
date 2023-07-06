@@ -326,7 +326,7 @@ apt install -y gcc-multilib
 查看 clang 版本：
 
 ```bash
-root@bcc-demo:/Users/I576375/Code/kubernetes-guide/ebpf/goebpf# clang -v
+# clang -v
 Ubuntu clang version 14.0.6
 Target: aarch64-unknown-linux-gnu
 Thread model: posix
@@ -356,4 +356,29 @@ Wrote /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfel.go
 Compiled /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.o
 Stripped /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.o
 Wrote /root/kubernetes-guide/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.go
+```
+
+启动 eBPF 程序。
+
+```bash
+cd goebpf/cmd/tc/
+go run main.go
+```
+
+启动被监控的程序。
+
+```bash
+cd testwrite
+./testwrite
+```
+
+查看监听的 trace 日志。
+
+```bash
+# cat /sys/kernel/debug/tracing/trace_pipe
+testwrite-773766  [000] d...1 1084879.915646: bpf_trace_printk: pid= 773766,name:testwrite. writing data
+
+testwrite-773766  [000] d...1 1084879.919001: bpf_trace_printk: pid= 773766,name:testwrite. writing data
+
+testwrite-773766  [000] d...1 1084879.919241: bpf_trace_printk: pid= 773766,name:testwrite. writing data
 ```
