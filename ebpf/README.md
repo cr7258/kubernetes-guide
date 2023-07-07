@@ -382,3 +382,61 @@ testwrite-773766  [000] d...1 1084879.919001: bpf_trace_printk: pid= 773766,name
 
 testwrite-773766  [000] d...1 1084879.919241: bpf_trace_printk: pid= 773766,name:testwrite. writing data
 ```
+
+## eBPF Maps 入门
+
+### 基本创建，接收事件
+
+cilium/ebpf 提供了一些头文件 https://github.com/cilium/ebpf/tree/master/examples/headers ，下载以后放到 goebpf/cebpf/headers 目录中。
+
+之前我们在 [tc_write.bpf.c](goebpf/cebpf/tc/tc_write.bpf.c) 文件中引用的头文件可以直接改成 `#include <common.h>`。
+
+```c
+//#include <bpf/bpf_helpers.h>
+//#include <bpf/bpf_tracing.h>
+//#include <linux/limits.h>
+#include <common.h>
+```
+
+Map 是用户空间和内核空间进行数据交换、信息传递的桥梁，它以 key/value 方式将数据存储在内核中，可以被任何知道它们的 BPF 程序访问。 
+
+需要包含 <linux/bpf.h>，使用 SEC 语法糖创建：
+
+```c
+struct bpf_map_def SEC("maps") my_bpf_map = {
+.type       = BPF_MAP_TYPE_HASH,
+.key_size   = sizeof(int),
+.value_size   = sizeof(int),
+.max_entries = 100,
+.map_flags   = BPF_F_NO_PREALLOC,
+};
+```
+
+场景的 Map 类型：
+- BPF_MAP_TYPE_HASH：哈希表类型的 map，可以用于快速存取键值对，适用于高速数据查询场景。
+- BPF_MAP_TYPE_ARRAY：数组类型的 map，可以用于存储连续的数据元素，适用于按照顺序访问数据的场景。 
+- BPF_MAP_TYPE_PROG_ARRAY：程序数组类型的 map，可以用于存储 eBPF 程序，适用于动态加载和卸载 eBPF 程序的场景。 
+- BPF_MAP_TYPE_PERF_EVENT_ARRAY：性能事件数组类型的 map，可以用于收集系统性能数据，例如 CPU 使用率、内存使用率等。 
+- BPF_MAP_TYPE_STACK_TRACE：堆栈跟踪类型的 map，可以用于跟踪函数调用堆栈，适用于调试和性能分析场景。 
+- BPF_MAP_TYPE_LRU_HASH：LRU哈希表类型的 map，可以用于快速存取键值对，并在内存不足时自动删除最近最少使用的键值对，适用于高速数据查询场景。 
+- BPF_MAP_TYPE_LRU_PERCPU_HASH：LRU 哈希表类型的 map，支持多个 CPU 核心并发访问，适用于高速数据查询和多线程场景。 
+- BPF_MAP_TYPE_ARRAY_OF_MAPS：map数组类型的 map，可以用于存储其他类型的 map，适用于复杂数据结构的场景。 
+- BPF_MAP_TYPE_DEVMAP：设备映射类型的 map，可以将网络设备和 eBPF 程序绑定，适用于网络协议栈优化和网络安全场景。 
+- BPF_MAP_TYPE_CPUMAP：CPU 映射类型的 map，可以将 eBPF 程序和 CPU 核心绑定，适用于多核心系统性能优化场景。
+
+在 [tc_write.bpf.c](goebpf/cebpf/tc/tc_write.bpf.c) 文件中创建一个 Map，类型是 BPF_MAP_TYPE_PERF_EVENT_ARRAY。
+
+```c
+struct bpf_map_def SEC("maps") log_map = {
+    .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(__u32),
+    .max_entries = 0,
+};
+```
+
+向用户态发送程序，BPF_MAP_TYPE_PERF_EVENT_ARRAY 的核心函数是 bpf_perf_event_output()。
+
+```c
+bpf_perf_event_output(ctx, &log_map, 0, &data, sizeof(data));
+```

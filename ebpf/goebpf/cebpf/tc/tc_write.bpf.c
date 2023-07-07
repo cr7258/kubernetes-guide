@@ -1,9 +1,10 @@
 //go:build ignore
 #define BPF_NO_GLOBAL_DATA
 #include <linux/bpf.h>
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
-#include <linux/limits.h>
+//#include <bpf/bpf_helpers.h>
+//#include <bpf/bpf_tracing.h>
+//#include <linux/limits.h>
+#include <common.h>
 typedef unsigned int u32;
 
 
@@ -24,6 +25,14 @@ struct data_t {
     char comm[NAME_MAX];  //NAME_MAX 文件名的最大长度，通常也可以用于进程或线程名称的最大长度
 };
 
+// 创建map
+struct bpf_map_def SEC("maps") log_map = {
+    .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(__u32),
+    .max_entries = 0,
+};
+
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 SEC("tracepoint/syscalls/sys_enter_write")
@@ -35,7 +44,9 @@ int handle_tp(void *ctx)
     bpf_get_current_comm(&data.comm, sizeof(data.comm)); //获取进程名称
      int eq=is_eq(data.comm,app_name);
     if(eq==1){
-       bpf_printk("pid= %d,name:%s. writing data\n",  data.pid, data.comm);
+        // bpf_printk("pid= %d,name:%s. writing data\n",  data.pid, data.comm);
+        // 向用户态发送程序
+        bpf_perf_event_output(ctx, &log_map, 0, &data, sizeof(data));
     }
    return 0;
 }
