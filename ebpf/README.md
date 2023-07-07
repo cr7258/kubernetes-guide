@@ -440,3 +440,62 @@ struct bpf_map_def SEC("maps") log_map = {
 ```c
 bpf_perf_event_output(ctx, &log_map, 0, &data, sizeof(data));
 ```
+
+在项目根目录执行 make 命令生成 go 和 o 文件。
+
+```bash
+make
+
+# 输出
+go generate ./...
+Compiled /root/sync/ebpf/goebpf/cebpf/tc/tc_write_bpfel.o
+Stripped /root/sync/ebpf/goebpf/cebpf/tc/tc_write_bpfel.o
+Wrote /root/sync/ebpf/goebpf/cebpf/tc/tc_write_bpfel.go
+Compiled /root/sync/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.o
+Stripped /root/sync/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.o
+Wrote /root/sync/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.go
+```
+
+在 [loader.go](goebpf/cebpf/tc/loader.go) 文件中添加在用户态读取 Map 的代码。
+
+```go
+// 创建 reader 来读取内核 Map 中的数据
+rd, err := perf.NewReader(tc_obj.LogMap, os.Getpagesize())
+if err != nil {
+    log.Fatalf("creating perf event reader: %s", err)
+}
+defer rd.Close()
+
+for {
+    record, err := rd.Read()
+    if err != nil {
+        if errors.Is(err, perf.ErrClosed) {
+            log.Println("Received signal, exiting..")
+            return
+        }
+        log.Printf("reading from reader: %s", err)
+        continue
+    }
+    log.Println("Record:", string(record.RawSample))
+}
+```
+
+启动 eBPF 程序。
+
+```bash
+cd goebpf/cmd/tc/
+go run main.go
+```
+
+启动被监控的程序。
+
+```bash
+cd testwrite
+./testwrite
+```
+
+运行的 eBPF 程序会输出以下内容：
+
+```bash
+
+```

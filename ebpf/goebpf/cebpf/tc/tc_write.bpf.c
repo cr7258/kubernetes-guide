@@ -1,10 +1,9 @@
 //go:build ignore
-#define BPF_NO_GLOBAL_DATA
 #include <linux/bpf.h>
-//#include <bpf/bpf_helpers.h>
-//#include <bpf/bpf_tracing.h>
-//#include <linux/limits.h>
-#include <common.h>
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
+//#include <common.h>
+#include <linux/limits.h>
 typedef unsigned int u32;
 
 
@@ -30,7 +29,7 @@ struct bpf_map_def SEC("maps") log_map = {
     .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
     .key_size = sizeof(int),
     .value_size = sizeof(__u32),
-    .max_entries = 0,
+    .max_entries = 0, // 用户态不需要向内核态传递数据，所以这里可以设置为0
 };
 
 char LICENSE[] SEC("license") = "Dual BSD/GPL";

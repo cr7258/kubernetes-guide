@@ -60,6 +60,7 @@ type tc_writeProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tc_writeMapSpecs struct {
+	LogMap *ebpf.MapSpec `ebpf:"log_map"`
 }
 
 // tc_writeObjects contains all objects after they have been loaded into the kernel.
@@ -81,10 +82,13 @@ func (o *tc_writeObjects) Close() error {
 //
 // It can be passed to loadTc_writeObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tc_writeMaps struct {
+	LogMap *ebpf.Map `ebpf:"log_map"`
 }
 
 func (m *tc_writeMaps) Close() error {
-	return _Tc_writeClose()
+	return _Tc_writeClose(
+		m.LogMap,
+	)
 }
 
 // tc_writePrograms contains all programs after they have been loaded into the kernel.
