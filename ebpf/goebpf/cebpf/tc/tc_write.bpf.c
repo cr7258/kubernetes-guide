@@ -41,10 +41,11 @@ int handle_tp(void *ctx)
     struct data_t data = {};
     data.pid = bpf_get_current_pid_tgid() >> 32; //获取PID
     bpf_get_current_comm(&data.comm, sizeof(data.comm)); //获取进程名称
-     int eq=is_eq(data.comm,app_name);
+    int eq=is_eq(data.comm,app_name);
     if(eq==1){
         // bpf_printk("pid= %d,name:%s. writing data\n",  data.pid, data.comm);
         // 向用户态发送程序
+        char data[] = "writing data";
         bpf_perf_event_output(ctx, &log_map, 0, &data, sizeof(data));
     }
    return 0;
