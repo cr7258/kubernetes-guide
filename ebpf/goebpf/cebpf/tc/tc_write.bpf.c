@@ -45,7 +45,6 @@ int handle_tp(void *ctx)
     if(eq==1){
         // bpf_printk("pid= %d,name:%s. writing data\n",  data.pid, data.comm);
         // 向用户态发送程序
-        char data[] = "writing data";
         bpf_perf_event_output(ctx, &log_map, 0, &data, sizeof(data));
     }
    return 0;

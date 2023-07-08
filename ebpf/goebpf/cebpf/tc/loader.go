@@ -1,6 +1,7 @@
 package tc
 
 import (
+	"bytes"
 	"errors"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/perf"
@@ -8,7 +9,14 @@ import (
 	"log"
 	"os"
 	"time"
+	"unsafe"
 )
+
+// 在用户态需要定义 struct 匹配内核态中的 Map
+type DataT struct {
+	Pid  uint32
+	Comm [256]byte
+}
 
 func LoadTcWrite() {
 	if err := rlimit.RemoveMemlock(); err != nil {
@@ -44,7 +52,10 @@ func LoadTcWrite() {
 			log.Printf("reading from reader: %s", err)
 			continue
 		}
-		log.Println("Record:", string(record.RawSample))
+		if len(record.RawSample) > 0 {
+			data := (*DataT)(unsafe.Pointer(&record.RawSample[0]))
+			log.Println("进程名:", string(bytes.TrimRight(data.Comm[:], "0x00")))
+		}
 	}
 
 	time.Sleep(time.Second * 3600)

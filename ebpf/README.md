@@ -459,6 +459,12 @@ Wrote /root/sync/ebpf/goebpf/cebpf/tc/tc_write_bpfeb.go
 在 [loader.go](goebpf/cebpf/tc/loader.go) 文件中添加在用户态读取 Map 的代码。
 
 ```go
+// 在用户态需要定义 struct 匹配内核态中的 Map
+type DataT struct {
+    Pid  uint32
+    Comm [256]byte
+}
+
 // 创建 reader 来读取内核 Map 中的数据
 rd, err := perf.NewReader(tc_obj.LogMap, os.Getpagesize())
 if err != nil {
@@ -476,7 +482,10 @@ for {
         log.Printf("reading from reader: %s", err)
         continue
     }
-    log.Println("Record:", string(record.RawSample))
+    if len(record.RawSample) > 0 {
+        data := (*DataT)(unsafe.Pointer(&record.RawSample[0]))
+        log.Println("进程名:", string(bytes.TrimRight(data.Comm[:], "0x00")))
+    }
 }
 ```
 
@@ -494,16 +503,14 @@ cd testwrite
 ./testwrite
 
 # 输出
-当前的PID是： 2592372
-写入成功 2023-07-07 13:44:21.160938978 +0000 UTC m=+0.000539761
-写入成功 2023-07-07 13:44:26.1652228 +0000 UTC m=+5.004823592
-写入成功 2023-07-07 13:44:31.168756774 +0000 UTC m=+10.008357561
+当前的PID是： 3637570
+写入成功 2023-07-08 02:40:25.404906763 +0000 UTC m=+0.000473673
+写入成功 2023-07-08 02:40:30.4083393 +0000 UTC m=+5.003906209
 ```
 
 运行的 eBPF 程序会输出以下内容：
 
 ```bash
-2023/07/07 13:44:21 Record: writing data
-2023/07/07 13:44:21 Record: writing data
-2023/07/07 13:44:21 Record: writing data
+2023/07/08 02:40:30 进程名: testwrite
+2023/07/08 02:40:35 进程名: testwrite
 ```
