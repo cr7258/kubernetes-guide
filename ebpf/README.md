@@ -596,3 +596,44 @@ go run main.go
 ```
 
 ## 用户态和 XDP 交互
+
+XDP 程序在 goebpf/cebpf/xdp 目录中。
+
+```go
+// 将 xdp 程序挂载到网卡上
+l, err := link.AttachXDP(link.XDPOptions{
+    Program:   xdpObj.MyPass,
+    Interface: iface.Index,
+})
+```
+
+启动 eBPF 程序。
+
+```bash
+cd goebpf/cmd/xdp/
+go run main.go
+```
+
+在宿主机中启动一个 HTTP 程序。
+
+```bash
+python3 -m http.server 8080
+```
+
+启动一个 Docker 容器，访问宿主机的 HTTP 服务。
+
+```bash
+# 172.17.0.1 是 docker0 网卡
+docker run --rm nginx:1.20 curl 172.17.0.1:8080
+```
+
+运行的 eBPF 程序会输出以下内容：
+
+```bash
+来源IP:172.17.0.2,目标IP:172.17.0.1,包大小:74,入口网卡index:3,来源端口:49342,目标端口:8080
+来源IP:172.17.0.2,目标IP:172.17.0.1,包大小:66,入口网卡index:3,来源端口:49342,目标端口:8080
+来源IP:172.17.0.2,目标IP:172.17.0.1,包大小:145,入口网卡index:3,来源端口:49342,目标端口:8080
+来源IP:172.17.0.2,目标IP:172.17.0.1,包大小:66,入口网卡index:3,来源端口:49342,目标端口:8080
+来源IP:172.17.0.2,目标IP:172.17.0.1,包大小:66,入口网卡index:3,来源端口:49342,目标端口:8080
+来源IP:172.17.0.2,目标IP:172.17.0.1,包大小:66,入口网卡index:3,来源端口:49342,目标端口:8080
+```
