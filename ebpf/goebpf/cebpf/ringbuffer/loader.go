@@ -28,7 +28,7 @@ func LoadTcWrite() {
 		log.Fatal("加载出错:", err)
 	}
 	defer tc_obj.Close()
-	// TODO 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
+
 	tp, err := link.Tracepoint("syscalls", "sys_enter_openat",
 		tc_obj.HandleTp, nil)
 	if err != nil {

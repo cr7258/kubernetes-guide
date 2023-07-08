@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
@@ -23,8 +24,12 @@ type IpData struct {
 	Dport uint16
 }
 
-func ntohs(port uint16) uint16 {
-	return ((port & 0xff) << 8) | (port >> 8)
+func initAllowIpMap(m *ebpf.Map) {
+	ip1 := binary.BigEndian.Uint32(net.ParseIP("172.17.0.2").To4())
+	err := m.Put(ip1, uint8(1))
+	if err != nil {
+		log.Fatalln("设置白名单出错:", err)
+	}
 }
 
 func resolveIP(input_ip uint32, isbig bool) net.IP {
@@ -45,6 +50,7 @@ func LoadXDP() {
 	if err != nil {
 		log.Fatalln("加载出错:", err)
 	}
+	initAllowIpMap(xdpObj.AllowIpsMap) //初始化白名单
 
 	defer xdpObj.Close()
 	iface, err := net.InterfaceByName("docker0")

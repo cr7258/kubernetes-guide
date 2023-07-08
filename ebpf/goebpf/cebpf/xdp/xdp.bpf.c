@@ -16,8 +16,16 @@ struct ip_data {
      __uint(type, BPF_MAP_TYPE_RINGBUF);
      __uint(max_entries,1<<20);
  } ip_map SEC(".maps");
-SEC("xdp")
 
+ // IP 白名单
+struct bpf_map_def SEC("maps") allow_ips_map = {
+     .type = BPF_MAP_TYPE_HASH,
+     .key_size = sizeof(__u32),
+     .value_size = sizeof(__u8), // 设置为 1 表示允许放行
+     .max_entries = 1024,
+ };
+
+SEC("xdp")
 int my_pass(struct xdp_md* ctx) {
     void *data = (void*)(long)ctx->data;
     void *data_end = (void*)(long)ctx->data_end;
@@ -55,7 +63,14 @@ int my_pass(struct xdp_md* ctx) {
     ipdata->dport=bpf_ntohs(tcp->dest);
 
     bpf_ringbuf_submit(ipdata, 0);
-    return XDP_PASS;
+
+    __u32 sip=bpf_ntohl(ip->saddr);
+    __u8 *allow=bpf_map_lookup_elem(&allow_ips_map, &sip);
+    if(allow && *allow==1){ // 在 loader.go 的 initAllowIpMap 方法中会将允许的 IP 地址设置为 1
+      return XDP_PASS;
+    }
+
+    return XDP_DROP;
 }
 
 char __license[] SEC("license") = "GPL";

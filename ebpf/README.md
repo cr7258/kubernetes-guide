@@ -597,6 +597,8 @@ go run main.go
 
 ## 用户态和 XDP 交互
 
+### 获取 IP, TCP 数据
+
 XDP 程序在 goebpf/cebpf/xdp 目录中。
 
 ```go
@@ -636,4 +638,82 @@ docker run --rm nginx:1.20 curl 172.17.0.1:8080
 来源IP:172.17.0.2,目标IP:172.17.0.1,包大小:66,入口网卡index:3,来源端口:49342,目标端口:8080
 来源IP:172.17.0.2,目标IP:172.17.0.1,包大小:66,入口网卡index:3,来源端口:49342,目标端口:8080
 来源IP:172.17.0.2,目标IP:172.17.0.1,包大小:66,入口网卡index:3,来源端口:49342,目标端口:8080
+```
+
+### 只允许指定 IP 访问
+
+启动两个容器。
+
+```bash
+docker run -itd --name client1 nginx:1.20 
+docker run -itd --name client2 nginx:1.20
+```
+
+查看这两个容器的 IP。
+
+```bash
+docker inspect -f "{{ .NetworkSettings.IPAddress }}" client1
+# 返回结果
+172.17.0.2
+
+docker inspect -f "{{ .NetworkSettings.IPAddress }}" client2
+# 返回结果
+172.17.0.3
+```
+
+在用户态中设置白名单，将 client1 的 IP 加入白名单（标记为 1）。
+
+```go
+func initAllowIpMap(m *ebpf.Map) {
+	ip1 := binary.BigEndian.Uint32(net.ParseIP("172.17.0.2").To4())
+	err := m.Put(ip1, uint8(1))
+	if err != nil {
+		log.Fatalln("设置白名单出错:", err)
+	}
+}
+```
+
+在 eBPF 程序中设置 Map，对 value 进行判断，如果为 1，就放行。
+
+```c
+ // IP 白名单
+struct bpf_map_def SEC("maps") allow_ips_map = {
+     .type = BPF_MAP_TYPE_HASH,
+     .key_size = sizeof(__u32),
+     .value_size = sizeof(__u8), // 设置为 1 表示允许放行
+     .max_entries = 1024,
+ };
+ 
+ 
+ 
+// 如果 IP 在白名单中，就放行 
+__u32 sip=bpf_ntohl(ip->saddr);
+__u8 *allow=bpf_map_lookup_elem(&allow_ips_map, &sip);
+if(allow && *allow==1){ // 在 loader.go 的 initAllowIpMap 方法中会将允许的 IP 地址设置为 1
+  return XDP_PASS;
+}
+
+return XDP_DROP;
+```
+
+启动 eBPF 程序。
+
+```bash
+cd goebpf/cmd/xdp/
+go run main.go
+```
+
+在宿主机中启动一个 HTTP 程序。
+
+```bash
+python3 -m http.server 8080
+```
+
+启动一个 Docker 容器，访问宿主机的 HTTP 服务。
+
+```bash
+# client1 可以访问
+docker exec client1 curl 172.17.0.1:8080
+# client1 禁止访问
+docker exec client2 curl 172.17.0.1:8080
 ```

@@ -60,7 +60,8 @@ type myxdpProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type myxdpMapSpecs struct {
-	IpMap *ebpf.MapSpec `ebpf:"ip_map"`
+	AllowIpsMap *ebpf.MapSpec `ebpf:"allow_ips_map"`
+	IpMap       *ebpf.MapSpec `ebpf:"ip_map"`
 }
 
 // myxdpObjects contains all objects after they have been loaded into the kernel.
@@ -82,11 +83,13 @@ func (o *myxdpObjects) Close() error {
 //
 // It can be passed to loadMyxdpObjects or ebpf.CollectionSpec.LoadAndAssign.
 type myxdpMaps struct {
-	IpMap *ebpf.Map `ebpf:"ip_map"`
+	AllowIpsMap *ebpf.Map `ebpf:"allow_ips_map"`
+	IpMap       *ebpf.Map `ebpf:"ip_map"`
 }
 
 func (m *myxdpMaps) Close() error {
 	return _MyxdpClose(
+		m.AllowIpsMap,
 		m.IpMap,
 	)
 }
