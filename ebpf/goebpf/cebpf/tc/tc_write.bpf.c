@@ -1,11 +1,7 @@
 //go:build ignore
-#include <linux/bpf.h>
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
-//#include <common.h>
+#include "common.h"
 #include <linux/limits.h>
 typedef unsigned int u32;
-
 
 int is_eq(char *str1,char *str2){
     int eq=1;

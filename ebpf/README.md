@@ -1,10 +1,15 @@
-* [创建 Linux 虚拟机](#创建-linux-虚拟机)
+* [环境准备](#环境准备)
 * [启动第一个 eBPF 程序](#启动第一个-ebpf-程序)
 * [tracepoint 监控 Go 程序写入](#tracepoint-监控-go-程序写入)
 * [kprobe 监控 Go 程序写入](#kprobe-监控-go-程序写入)
 * [XDP 拦截 ICMP 协议](#xdp-拦截-icmp-协议)
+* [用户态开发 cilium/ebpf 入门](#用户态开发-ciliumebpf-入门)
+* [eBPF Maps 入门](#ebpf-maps-入门)
+    * [传递 struct 给用户态解析](#传递-struct-给用户态解析)
+    * [Ring Buffer 入门](#ring-buffer-入门)
+* [用户态和 XDP 交互](#用户态和-xdp-交互)
 
-## 创建 Linux 虚拟机
+## 环境准备
 
 ```bash
 # 启动虚拟机
@@ -385,7 +390,7 @@ testwrite-773766  [000] d...1 1084879.919241: bpf_trace_printk: pid= 773766,name
 
 ## eBPF Maps 入门
 
-### 基本创建，接收事件
+### 传递 struct 给用户态解析
 
 cilium/ebpf 提供了一些头文件 https://github.com/cilium/ebpf/tree/master/examples/headers ，下载以后放到 goebpf/cebpf/headers 目录中。
 
@@ -398,7 +403,7 @@ cilium/ebpf 提供了一些头文件 https://github.com/cilium/ebpf/tree/master/
 #include <common.h>
 ```
 
-Map 是用户空间和内核空间进行数据交换、信息传递的桥梁，它以 key/value 方式将数据存储在内核中，可以被任何知道它们的 BPF 程序访问。 
+Map 是用户空间和内核空间进行数据交换、信息传递的桥梁，它以 key/value 方式将数据存储在内核中，可以被任何知道它们的 BPF 程序访问。
 
 需要包含 <linux/bpf.h>，使用 SEC 语法糖创建：
 
@@ -414,14 +419,14 @@ struct bpf_map_def SEC("maps") my_bpf_map = {
 
 场景的 Map 类型：
 - BPF_MAP_TYPE_HASH：哈希表类型的 map，可以用于快速存取键值对，适用于高速数据查询场景。
-- BPF_MAP_TYPE_ARRAY：数组类型的 map，可以用于存储连续的数据元素，适用于按照顺序访问数据的场景。 
-- BPF_MAP_TYPE_PROG_ARRAY：程序数组类型的 map，可以用于存储 eBPF 程序，适用于动态加载和卸载 eBPF 程序的场景。 
-- BPF_MAP_TYPE_PERF_EVENT_ARRAY：性能事件数组类型的 map，可以用于收集系统性能数据，例如 CPU 使用率、内存使用率等。 
-- BPF_MAP_TYPE_STACK_TRACE：堆栈跟踪类型的 map，可以用于跟踪函数调用堆栈，适用于调试和性能分析场景。 
-- BPF_MAP_TYPE_LRU_HASH：LRU哈希表类型的 map，可以用于快速存取键值对，并在内存不足时自动删除最近最少使用的键值对，适用于高速数据查询场景。 
-- BPF_MAP_TYPE_LRU_PERCPU_HASH：LRU 哈希表类型的 map，支持多个 CPU 核心并发访问，适用于高速数据查询和多线程场景。 
-- BPF_MAP_TYPE_ARRAY_OF_MAPS：map数组类型的 map，可以用于存储其他类型的 map，适用于复杂数据结构的场景。 
-- BPF_MAP_TYPE_DEVMAP：设备映射类型的 map，可以将网络设备和 eBPF 程序绑定，适用于网络协议栈优化和网络安全场景。 
+- BPF_MAP_TYPE_ARRAY：数组类型的 map，可以用于存储连续的数据元素，适用于按照顺序访问数据的场景。
+- BPF_MAP_TYPE_PROG_ARRAY：程序数组类型的 map，可以用于存储 eBPF 程序，适用于动态加载和卸载 eBPF 程序的场景。
+- BPF_MAP_TYPE_PERF_EVENT_ARRAY：性能事件数组类型的 map，可以用于收集系统性能数据，例如 CPU 使用率、内存使用率等。
+- BPF_MAP_TYPE_STACK_TRACE：堆栈跟踪类型的 map，可以用于跟踪函数调用堆栈，适用于调试和性能分析场景。
+- BPF_MAP_TYPE_LRU_HASH：LRU哈希表类型的 map，可以用于快速存取键值对，并在内存不足时自动删除最近最少使用的键值对，适用于高速数据查询场景。
+- BPF_MAP_TYPE_LRU_PERCPU_HASH：LRU 哈希表类型的 map，支持多个 CPU 核心并发访问，适用于高速数据查询和多线程场景。
+- BPF_MAP_TYPE_ARRAY_OF_MAPS：map数组类型的 map，可以用于存储其他类型的 map，适用于复杂数据结构的场景。
+- BPF_MAP_TYPE_DEVMAP：设备映射类型的 map，可以将网络设备和 eBPF 程序绑定，适用于网络协议栈优化和网络安全场景。
 - BPF_MAP_TYPE_CPUMAP：CPU 映射类型的 map，可以将 eBPF 程序和 CPU 核心绑定，适用于多核心系统性能优化场景。
 
 在 [tc_write.bpf.c](goebpf/cebpf/tc/tc_write.bpf.c) 文件中创建一个 Map，类型是 BPF_MAP_TYPE_PERF_EVENT_ARRAY。
@@ -514,3 +519,80 @@ cd testwrite
 2023/07/08 02:40:30 进程名: testwrite
 2023/07/08 02:40:35 进程名: testwrite
 ```
+
+### Ring Buffer 入门
+
+Ring Buffer 环形缓冲区：
+- 1 Linux 内核需要 >=5.8
+- 2.解决了 BPF 性能缓冲区的内存效率和事件重排序问题
+- 3.它是一个多生产者单消费者（MPSC）队列，可以同时在多个 CPU 之间安全地共享
+- 4.目前成为内核态到用户空间的优先选择
+
+参考链接：
+- [【BPF入门系列-6】BPF 环形缓冲区](https://www.ebpf.top/post/bpf_ring_buffer/)
+- [BPF ring buffer：使用场景、核心设计及程序示例（2020）](https://arthurchiao.art/blog/bpf-ringbuf-zh/)
+
+Ring Buffer 类型的 map 使用内置宏的方式创建。
+
+```c
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries,1<<20);
+} log_map SEC(".maps");
+```
+
+使用 Ring Buffer 向用户态发送程序。
+- 方式一：bpf_ringbuf_output() API 的目的是允许从 BPF perfbuf 平滑过渡到 BPF ringbuf，而无需对BPF 代码进行任何实质性更改。但这也意味着它具有 BPF perfbuf API 的一些缺点：额外的内存复制和滞后的数据预留。
+
+```c
+struct data_t data = {};
+data.pid = bpf_get_current_pid_tgid() >> 32; //获取PID
+bpf_get_current_comm(&data.comm, sizeof(data.comm)); //获取进程名称
+bpf_ringbuf_output(&log_map, &data, sizeof(data), 0);
+```
+
+- 方式二：bpf_ringbuf_reserve()/bpf_ringbuf_commit()。Reserve允许你执行以下操作：尽早预留空间或确定不可能的空间（在这种情况下返回NULL）。如果我们没有足够的数据来提交样本，则可以跳过花费所有资源来捕获数据步骤。但是，如果预留成功，那么我们可以保证，一旦完成数据收集，将其发布到用户空间将永远不会失败。即如果bpf_ringbuf_reserve() 返回一个非NULL指针，则后续的 bpf_ringbuf_commit() 将始终成功。在大多数情况下，reserve/commit 是你应该首选的方法。
+
+```c
+
+// 尽早预留空间或确定不可能的空间（在这种情况下返回NULL）
+data=bpf_ringbuf_reserve(&log_map, sizeof(*data), 0);
+if(!data){
+  return 0;
+}
+
+data->pid = bpf_get_current_pid_tgid() >> 32; //获取PID
+bpf_get_current_comm(&data->comm, sizeof(data->comm)); //获取进程名称
+bpf_ringbuf_submit(data, 0); // 向用户态发送数据
+```
+
+启动 eBPF 程序。
+
+```bash
+cd goebpf/ringbuffer/tc/
+go run main.go
+```
+
+运行的 eBPF 程序会输出以下内容：
+
+```bash
+2023/07/08 03:41:24 进程名: containerd-shim
+2023/07/08 03:41:24 进程名: ovs-vswitchd
+2023/07/08 03:41:24 进程名: sh
+2023/07/08 03:41:24 进程名: sh
+2023/07/08 03:41:24 进程名: timeout
+2023/07/08 03:41:24 进程名: timeout
+2023/07/08 03:41:24 进程名: ovs-vswitchd
+2023/07/08 03:41:24 进程名: container_liven
+2023/07/08 03:41:24 进程名: container_liven
+2023/07/08 03:41:24 进程名: bash
+2023/07/08 03:41:24 进程名: bash
+2023/07/08 03:41:24 进程名: bash
+2023/07/08 03:41:24 进程名: bash
+2023/07/08 03:41:24 进程名: bash
+2023/07/08 03:41:24 进程名: bash
+2023/07/08 03:41:24 进程名: bash
+2023/07/08 03:41:24 进程名: bash
+```
+
+## 用户态和 XDP 交互
