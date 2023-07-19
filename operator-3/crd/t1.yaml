@@ -1,0 +1,27 @@
+apiVersion: api.jtthink.com/v1alpha1
+kind: Task
+metadata:
+  name: mytask
+spec:
+  steps:
+  - name: step1
+    image: busybox:1.28
+    command: ["sh","-c"]
+    args: ["echo step1"]
+  - name: step2
+    image: busybox:1.28
+    command: [ "sh","-c" ]
+    args:
+      - echo step2;
+        echo error;
+        exit 0;
+  - name: step3
+    image: shenyisyn/task:v1
+    args: ["echo step3"]
+  - name: step4
+    image: busybox:1.28
+    script: |
+       echo  step4
+       echo  "step4-2"
+      
+
