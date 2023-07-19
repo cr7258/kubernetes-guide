@@ -8,6 +8,7 @@
 - kubebuilder：[Operator 和 Kubebuilder 入门](./kubebuilder)
 - operator-1：[k8s 原生 http ingress 网关](./operator-1)
 - operator-2：[通用 DB 服务 Operator 开发](./operator-2)
+- operator-3：[k8s 原生 CICD 框架](./operator-3)
 - observability：[K8S 可观测实战开发入门篇](./observability)
 - rust-wasm: Rust+Wasm [入门基础速学篇](./rust-wasm)
 - client-plugin-development: [K8S 运维级开发:客户端插件开发实战、命令行可视化](./client-plugin-development)
