@@ -7,7 +7,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"operator-3/pkg/apis/task/v1alpha1"
 	"operator-3/pkg/builder"
-	clientset "operator-3/pkg/client/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -15,15 +14,13 @@ import (
 
 type TaskController struct {
 	client.Client
-	*clientset.Clientset
 	E record.EventRecorder //记录事件
 }
 
-func NewTaskController(e record.EventRecorder, clientset *clientset.Clientset) *TaskController {
-	return &TaskController{E: e, Clientset: clientset}
+func NewTaskController(e record.EventRecorder) *TaskController {
+	return &TaskController{E: e}
 }
 
-// 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 func (r *TaskController) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	task := &v1alpha1.Task{}
 	err := r.Get(ctx, req.NamespacedName, task)
@@ -38,7 +35,6 @@ func (r *TaskController) Reconcile(ctx context.Context, req reconcile.Request) (
 	return reconcile.Result{}, nil
 }
 
-// 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 func (r *TaskController) OnUpdate(event event.UpdateEvent,
 	limitingInterface workqueue.RateLimitingInterface) {
 	for _, ref := range event.ObjectNew.GetOwnerReferences() {
@@ -53,7 +49,6 @@ func (r *TaskController) OnUpdate(event event.UpdateEvent,
 
 }
 
-// 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 func (r *TaskController) InjectClient(c client.Client) error {
 	r.Client = c
 	return nil

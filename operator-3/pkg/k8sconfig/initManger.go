@@ -4,7 +4,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"log"
 	taskv1alpha1 "operator-3/pkg/apis/task/v1alpha1"
-	"operator-3/pkg/client/clientset/versioned"
 	"operator-3/pkg/controllers"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -19,8 +18,6 @@ import (
 
 // 初始化 控制器管理器
 func InitManager() {
-	taskClient := versioned.NewForConfigOrDie(K8sRestConfig())
-
 	logf.SetLogger(zap.New())
 	mgr, err := manager.New(K8sRestConfig(),
 		manager.Options{
@@ -39,7 +36,6 @@ func InitManager() {
 	//初始化控制器对象
 	dbconfigController := controllers.NewTaskController(
 		mgr.GetEventRecorderFor("myci"),
-		taskClient,
 	)
 
 	if err = builder.ControllerManagedBy(mgr).
