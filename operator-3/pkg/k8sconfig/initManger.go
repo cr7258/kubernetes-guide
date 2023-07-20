@@ -1,11 +1,12 @@
 package k8sconfig
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"log"
 	taskv1alpha1 "operator-3/pkg/apis/task/v1alpha1"
 	"operator-3/pkg/controllers"
 	"os"
+
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -34,7 +35,7 @@ func InitManager() {
 		os.Exit(1)
 	}
 	//初始化控制器对象
-	dbconfigController := controllers.NewTaskController(
+	taskController := controllers.NewTaskController(
 		mgr.GetEventRecorderFor("myci"),
 	)
 
@@ -42,10 +43,10 @@ func InitManager() {
 		For(&taskv1alpha1.Task{}).
 		Watches(&source.Kind{Type: &corev1.Pod{}},
 			handler.Funcs{
-				UpdateFunc: dbconfigController.OnUpdate,
+				UpdateFunc: taskController.OnUpdate,
 			},
 		).
-		Complete(dbconfigController); err != nil {
+		Complete(taskController); err != nil {
 		mgr.GetLogger().Error(err, "unable to create manager")
 		os.Exit(1)
 	}

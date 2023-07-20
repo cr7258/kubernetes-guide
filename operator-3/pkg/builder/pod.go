@@ -3,13 +3,14 @@ package builder
 import (
 	"context"
 	"fmt"
+	"operator-3/pkg/apis/task/v1alpha1"
+	"strconv"
+	"strings"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"operator-3/pkg/apis/task/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
 )
 
 type PodBuilder struct {
@@ -56,7 +57,6 @@ const (
 	PodInfoVolume        = "podinfo"               //存储POD信息  用于dowardApi
 )
 
-// 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 func (pb *PodBuilder) setPodVolumes(pod *v1.Pod) {
 	volumes := []v1.Volume{
 		{
@@ -204,7 +204,7 @@ echo "%s" > ${scriptfile};
 	return step.Container, nil
 }
 
-// 任务王前进
+// 任务往前进
 func (pb *PodBuilder) forward(ctx context.Context, pod *v1.Pod) error {
 	if pod.Status.Phase == v1.PodSucceeded {
 		return nil
@@ -240,8 +240,7 @@ func (pb *PodBuilder) forward(ctx context.Context, pod *v1.Pod) error {
 	return pb.Client.Update(ctx, pod)
 }
 
-// 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
-// 构建 创建出 对应的POD
+// 构建创建出对应的 Pod
 func (pb *PodBuilder) Build(ctx context.Context) error {
 	//判断 POD是否存在
 	getPod, err := pb.getChildPod()
@@ -288,12 +287,8 @@ func (pb *PodBuilder) Build(ctx context.Context) error {
 	return pb.Create(ctx, newPod)
 }
 
-// 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 func (pb *PodBuilder) setStep(pod *v1.Pod) {
 	pod.Annotations = map[string]string{
 		"taskorder": "0",
 	}
-
 }
-
-//本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334

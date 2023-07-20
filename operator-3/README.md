@@ -31,10 +31,89 @@ kubectl apply -f crd/task.yaml
 
 ```bash
 go run main.go
+
+# 返回结果
+step1 用的是普通模式
+step2 用的是普通模式
+step3 用的是普通模式
+step4 用的是script模式
+新状态 Pending
+order是 0
+新状态 Pending
+order是 0
+新状态 Pending
+order是 0
+新状态 Running
+order是 1
+新状态 Running
+order是 2
+新状态 Running
+order是 2
+新状态 Running
+order是 3
+新状态 Running
+order是 3
+新状态 Running
+order是 4
+新状态 Running
+order是 4
+新状态 Running
+order是 4
+新状态 Running
+order是 4
+新状态 Succeeded
+order是 4
 ```
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230719205436.png)
+
+查看 Pod 的日志
 
 ## 创建 Task
 
 ```bash
 kubectl apply -f crd/t1.yaml
 ```
+
+## 异常处理
+
+修改 step2 任务的退出码为 exit 1，让任务异常退出，然后更新 Task。
+
+```bash
+kubectl apply -f crd/t1.yaml
+```
+
+查看 Controller 日志。
+
+```bash
+step1 用的是普通模式
+step2 用的是普通模式
+step3 用的是普通模式
+step4 用的是script模式
+新状态 Pending
+order是 0
+新状态 Pending
+order是 0
+新状态 Pending
+order是 0
+新状态 Pending
+order是 0
+新状态 Running
+order是 1
+新状态 Running
+order是 2
+新状态 Running
+order是 2
+新状态 Running
+order是 -1
+新状态 Running
+order是 -1
+新状态 Running
+order是 -1
+新状态 Running
+order是 -1
+新状态 Failed
+order是 -1
+```
+
+![](https://chengzw258.oss-cn-beijing.aliyuncs.com/Article/20230719205202.png)

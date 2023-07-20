@@ -13,8 +13,7 @@ spec:
     command: [ "sh","-c" ]
     args:
       - echo step2;
-        echo error;
-        exit 0;
+        exit 0; # 如果退出码非 0，后面的 task 不会运行
   - name: step3
     image: shenyisyn/task:v1
     args: ["echo step3"]
