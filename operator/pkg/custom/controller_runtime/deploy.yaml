@@ -1,0 +1,87 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sample-controller
+rules:
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - "samplecontroller.k8s.io"
+    resources:
+      - foos
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sample-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sample-controller
+subjects:
+  - kind: ServiceAccount
+    name: sample-controller
+    namespace: default
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sample-controller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: sample-controller
+  name: sample-controller
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-controller
+  template:
+    metadata:
+      labels:
+        app: sample-controller
+    spec:
+      containers:
+        - name: sample-controller
+          image:  cr7258/sample-controller:controller-runtime
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: sample-controller-webhook-crt
+              mountPath: /tmp/k8s-webhook-server/serving-certs/
+              readOnly: true
+      volumes:
+        - name: sample-controller-webhook-crt
+          configMap:
+            name: sample-controller-webhook-crt
+      serviceAccount: sample-controller
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-controller-webhook-server
+spec:
+  selector:
+    app: sample-controller
+  ports:
+    - name: webhook
+      protocol: TCP
+      port: 443
+      targetPort: 9443
