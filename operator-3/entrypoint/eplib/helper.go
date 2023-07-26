@@ -96,7 +96,6 @@ func CheckWaitFile() {
 			log.Fatal(err) //其他 未知错误
 		}
 	}
-
 }
 
 // 运行入口和参数

@@ -23,7 +23,6 @@ func NewPodBuilder(task *v1alpha1.Task, client client.Client) *PodBuilder {
 	return &PodBuilder{task: task, Client: client}
 }
 
-// 本课程来自 程序员在囧途(www.jtthink.com) 咨询群：98514334
 const (
 	//入口镜像  harbor
 	EntryPointImage              = "docker.io/shenyisyn/entrypoint:v1.1"
@@ -249,7 +248,7 @@ func (pb *PodBuilder) Build(ctx context.Context) error {
 		if getPod.Status.Phase == v1.PodRunning {
 			//起始状态
 			if getPod.Annotations[AnnotationTaskOrderKey] == AnnotationTaskOrderInitValue {
-				getPod.Annotations[AnnotationTaskOrderKey] = "1" //写死  。故意的
+				getPod.Annotations[AnnotationTaskOrderKey] = "1" // 先运行第一个 step
 				return pb.Client.Update(ctx, getPod)
 			} else {
 				if err := pb.forward(ctx, getPod); err != nil {
@@ -285,10 +284,4 @@ func (pb *PodBuilder) Build(ctx context.Context) error {
 			UID:        pb.task.UID,
 		})
 	return pb.Create(ctx, newPod)
-}
-
-func (pb *PodBuilder) setStep(pod *v1.Pod) {
-	pod.Annotations = map[string]string{
-		"taskorder": "0",
-	}
 }
