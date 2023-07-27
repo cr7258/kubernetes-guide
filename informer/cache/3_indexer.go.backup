@@ -1,0 +1,126 @@
+package cache
+
+/**
+* @description
+* @author chengzw
+* @since 2023/7/27
+* @link
+ */
+import (
+	"fmt"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"time"
+)
+
+type PodHandler struct {
+	msg string
+}
+
+func (p PodHandler) OnAdd(obj interface{}) {
+	fmt.Println("OnAdd:"+p.msg, obj.(metav1.Object).GetName())
+}
+func (p PodHandler) OnUpdate(oldObj, newObj interface{}) {
+	fmt.Println("OnUpdate" + p.msg)
+}
+func (p PodHandler) OnDelete(obj interface{}) {
+	fmt.Println("OnDelete" + p.msg)
+}
+
+type MySharedInformer struct {
+	processor *sharedProcessor
+	reflector *Reflector
+	fifo      *DeltaFIFO
+	store     Store
+}
+
+func NewMySharedInformer(lw *ListWatch, objType runtime.Object) *MySharedInformer {
+	store := NewStore(MetaNamespaceKeyFunc)
+	fifo := NewDeltaFIFOWithOptions(DeltaFIFOOptions{
+		KeyFunction:  MetaNamespaceKeyFunc,
+		KnownObjects: store,
+	})
+	reflector := NewReflector(lw, objType, fifo, 0)
+	return &MySharedInformer{processor: &sharedProcessor{}, reflector: reflector,
+		fifo: fifo, store: store}
+}
+
+func (msi *MySharedInformer) addEventHandler(handler ResourceEventHandler) {
+	lis := newProcessListener(handler, 0, 0, time.Now(),
+		initialBufferSize)
+	msi.processor.addListener(lis)
+}
+
+func (msi *MySharedInformer) start(ch <-chan struct{}) {
+	go func() {
+		for {
+			msi.fifo.Pop(func(obj interface{}) error {
+				for _, delta := range obj.(Deltas) {
+					switch delta.Type {
+					case Sync, Added:
+						msi.store.Add(delta.Object)
+						msi.processor.distribute(addNotification{newObj: delta.Object}, false)
+					case Updated:
+						if old, exists, err := msi.store.Get(delta.Object); err == nil && exists {
+							msi.store.Update(delta.Object)
+							msi.processor.distribute(updateNotification{newObj: delta.Object, oldObj: old}, false)
+						}
+					case Deleted:
+						msi.store.Delete(delta.Object)
+						msi.processor.distribute(deleteNotification{oldObj: delta.Object}, false)
+					}
+				}
+				return nil
+			})
+		}
+	}()
+	go func() {
+		msi.reflector.Run(ch)
+	}()
+	msi.processor.run(ch)
+}
+
+// 构建索引，参考 MetaNamespaceIndexFunc
+func LabelsIndexFunc(obj interface{}) ([]string, error) {
+	meta, err := meta.Accessor(obj)
+	if err != nil {
+		return []string{""}, fmt.Errorf("object has no meta: %v", err)
+	}
+	return []string{meta.GetLabels()["app"]}, nil
+}
+
+// 最终怎么展示 key 取决于这个函数
+func myKeyFunc(obj interface{}) (string, error) {
+	if key, ok := obj.(ExplicitKey); ok {
+		return string(key), nil
+	}
+	meta, err := meta.Accessor(obj)
+	if err != nil {
+		return "", fmt.Errorf("object has no meta: %v", err)
+	}
+	if len(meta.GetNamespace()) > 0 {
+		// 这里参考 MetaNamespaceKeyFunc 函数
+		return meta.GetNamespace() + "---" + meta.GetName(), nil
+	}
+	return meta.GetName(), nil
+}
+
+func TestIndexer() {
+
+	indexers := Indexers{"app": LabelsIndexFunc}
+	pod1 := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod1", Labels: map[string]string{
+		"app": "l1",
+	},
+		Namespace: "ns1"}}
+	pod2 := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod2", Namespace: "ns2", Labels: map[string]string{
+		"app": "l2",
+	}}}
+
+	myindex := NewIndexer(myKeyFunc, indexers)
+	myindex.Add(pod1)
+	myindex.Add(pod2)
+
+	fmt.Println(myindex.IndexKeys("app", "l1"))
+}

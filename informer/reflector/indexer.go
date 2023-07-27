@@ -19,10 +19,9 @@ func main() {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	podLW := cache.NewListWatchFromClient(client.CoreV1().RESTClient(), "pods",
 		"default", fields.Everything())
-
 	df := cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{
 		KeyFunction:  cache.MetaNamespaceKeyFunc,
-		KnownObjects: store, // 实现了 indexer
+		KnownObjects: store, // indexer 实现了 store
 	})
 	rf := cache.NewReflector(podLW, &v1.Pod{}, df, 0)
 	ch := make(chan struct{})

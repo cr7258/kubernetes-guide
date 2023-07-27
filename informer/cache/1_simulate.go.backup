@@ -1,0 +1,64 @@
+package cache
+
+/**
+* @description 手工模拟简单 SharedInformer
+* @author chengzw
+* @since 2023/7/27
+* @link
+ */
+
+import (
+	"fmt"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"time"
+)
+
+type PodHandler struct {
+	msg string
+}
+
+func (p PodHandler) OnAdd(obj interface{}) {
+	fmt.Println("OnAdd:"+p.msg, obj.(metav1.Object).GetName())
+}
+func (p PodHandler) OnUpdate(oldObj, newObj interface{}) {
+	fmt.Println("OnUpdate" + p.msg)
+}
+func (p PodHandler) OnDelete(obj interface{}) {
+	fmt.Println("OnDelete" + p.msg)
+}
+
+type MySharedInformer struct {
+	processor *sharedProcessor
+}
+
+func NewMySharedInformer() *MySharedInformer {
+	return &MySharedInformer{processor: &sharedProcessor{}}
+}
+func (msi *MySharedInformer) addEventHandler(handler ResourceEventHandler) {
+	lis := newProcessListener(handler, 0, 0, time.Now(), 0)
+	msi.processor.addListener(lis)
+	go func() { //模拟从 k8s 后去到数据
+		count := 0
+		for {
+			time.Sleep(time.Second * 1)
+			pod := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("pod%d", count)}}
+			lis.addCh <- addNotification{
+				newObj: pod,
+			}
+			count++
+		}
+	}()
+}
+func (msi *MySharedInformer) start(ch <-chan struct{}) {
+	msi.processor.run(ch)
+}
+func TestSharedInformer() {
+	msi := NewMySharedInformer()
+
+	// 添加不同的 EventHandler，支持多个消费者
+	msi.addEventHandler(&PodHandler{})
+	msi.addEventHandler(&PodHandler{msg: "second"})
+	msi.start(wait.NeverStop)
+}

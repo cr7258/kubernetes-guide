@@ -1,0 +1,97 @@
+package cache
+
+/**
+* @description 手工模拟 SharedInformer，加入 List & Watch
+* @author chengzw
+* @since 2023/7/27
+* @link
+ */
+import (
+	"fmt"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"myinformer/lib"
+	"time"
+)
+
+type PodHandler struct {
+	msg string
+}
+
+func (p PodHandler) OnAdd(obj interface{}) {
+	fmt.Println("OnAdd:"+p.msg, obj.(metav1.Object).GetName())
+}
+func (p PodHandler) OnUpdate(oldObj, newObj interface{}) {
+	fmt.Println("OnUpdate" + p.msg)
+}
+func (p PodHandler) OnDelete(obj interface{}) {
+	fmt.Println("OnDelete" + p.msg)
+}
+
+type MySharedInformer struct {
+	processor *sharedProcessor
+	reflector *Reflector
+	fifo      *DeltaFIFO
+	store     Store
+}
+
+func NewMySharedInformer(lw *ListWatch, objType interface{}) *MySharedInformer {
+	store := NewStore(MetaNamespaceKeyFunc)
+	fifo := NewDeltaFIFOWithOptions(DeltaFIFOOptions{
+		KeyFunction:  MetaNamespaceKeyFunc,
+		KnownObjects: store,
+	})
+	reflector := NewReflector(lw, objType, fifo, 0)
+	return &MySharedInformer{processor: &sharedProcessor{},
+		reflector: reflector, fifo: fifo, store: store}
+}
+func (msi *MySharedInformer) addEventHandler(handler ResourceEventHandler) {
+	lis := newProcessListener(handler, 0, 0, time.Now(), 1024)
+	msi.processor.addListener(lis)
+}
+func (msi *MySharedInformer) start(ch <-chan struct{}) {
+	go func() {
+		for {
+			msi.fifo.Pop(func(obj interface{}) error {
+				for _, delta := range obj.(Deltas) {
+					switch delta.Type {
+					case Sync, Added:
+						msi.store.Add(delta.Object)
+						isSync := false
+						if delta.Type == Sync {
+							isSync = true
+						}
+						// 往 processorListener.addCh 添加 Notification
+						msi.processor.distribute(addNotification{newObj: delta.Object}, isSync)
+					case Updated:
+						if old, exists, err := msi.store.Get(delta.Object); err == nil && exists {
+							msi.store.Update(delta.Object)
+							msi.processor.distribute(updateNotification{newObj: delta.Object, oldObj: old}, false)
+						}
+
+					case Deleted:
+						msi.store.Delete(delta.Object)
+						msi.processor.distribute(deleteNotification{oldObj: delta.Object}, false)
+					}
+				}
+				return nil
+			})
+		}
+	}()
+	go func() {
+		msi.reflector.Run(ch)
+	}()
+	msi.processor.run(ch)
+}
+func TestSharedInformerListWatch() {
+	client := lib.InitClient()
+	podLW := NewListWatchFromClient(client.CoreV1().RESTClient(), "pods",
+		"default", fields.Everything())
+
+	msi := NewMySharedInformer(podLW, &v1.Pod{})
+	msi.addEventHandler(&PodHandler{})
+	msi.addEventHandler(&PodHandler{msg: "second"})
+	msi.start(wait.NeverStop)
+}
