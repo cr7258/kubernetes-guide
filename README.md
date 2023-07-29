@@ -21,3 +21,4 @@
 - chatgpt_k8s: [ChatGPT 和 K8S 运维开发探索性实战](./chatgpt_k8s)
 - envoy: [Istio 微服务实战进阶之 Envoy 篇](./envoy)
 - informer: [Informer 深入学习篇](./informer)
+- controller-runtime: [Controller Runtime 深入学习和源码理解篇](./controller-runtime)
