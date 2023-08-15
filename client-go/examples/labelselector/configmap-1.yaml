@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-1
+  namespace: default
+  labels:
+    app: nginx
+data:
+  file: cm1

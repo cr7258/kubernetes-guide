@@ -7,6 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sort"
 )
 
 /**
@@ -41,5 +42,24 @@ func main() {
 	})
 	for _, pod := range podList2.Items {
 		println(pod.Name)
+	}
+
+	fmt.Println("========================================")
+	// 列出 app=nginx 的所有 ConfigMap，并获取最新的一个
+	configMaps, _ := clientset.CoreV1().ConfigMaps("default").List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "app=nginx",
+	})
+
+	// Sort ConfigMaps by creation timestamp
+	sort.Slice(configMaps.Items, func(i, j int) bool {
+		return configMaps.Items[i].CreationTimestamp.After(configMaps.Items[j].CreationTimestamp.Time)
+	})
+
+	// Get the newest ConfigMap
+	if len(configMaps.Items) > 0 {
+		newestConfigMap := configMaps.Items[0]
+		fmt.Printf("Newest ConfigMap with label app=nginx is: %s\n", newestConfigMap.Name)
+	} else {
+		fmt.Println("No ConfigMaps found with label app=nginx")
 	}
 }
