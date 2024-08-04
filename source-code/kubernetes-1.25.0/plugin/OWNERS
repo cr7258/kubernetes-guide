@@ -1,0 +1,15 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+reviewers:
+  - dims
+  - dchen1107
+  - lavalamp
+  - thockin
+approvers:
+  - dims
+  - dchen1107
+  - lavalamp
+  - thockin
+emeritus_approvers:
+  - davidopp
+  - brendandburns
