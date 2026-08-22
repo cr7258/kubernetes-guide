@@ -1,3 +1,5 @@
+
+
 # Kubernetes 教程
 - authentication: [Kubernetes 认证](./authentication)
 - finalizers：[Kubernetes 对象删除原理](./finalizers)
@@ -22,3 +24,4 @@
 - envoy: [Istio 微服务实战进阶之 Envoy 篇](./envoy)
 - informer: [Informer 深入学习篇](./informer)
 - controller-runtime: [Controller Runtime 深入学习和源码理解篇](./controller-runtime)
+- client-go: [client-go 四种类型](./client-go)
